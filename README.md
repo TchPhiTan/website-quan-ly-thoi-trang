@@ -5,3 +5,5 @@ TẠO TK MAILJET FREE, THAY MAIL TRONG MAILJET VÀO API.JS
 HOST NODE.JS
 HOST SQL SERVER BẰNG SCHEMA
 NỐI DB VỚI WEB BẰNG PRISMA ORM
+
+npm install express cors express-session bcrypt winston node-mailjet uuid
