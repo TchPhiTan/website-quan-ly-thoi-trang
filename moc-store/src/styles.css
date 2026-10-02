@@ -1,0 +1,26 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@theme inline {
+  --color-background: var(--background); --color-foreground: var(--foreground); --color-card: var(--card); --color-card-foreground: var(--foreground); --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground); --color-secondary: var(--secondary); --color-secondary-foreground: var(--foreground); --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground); --color-accent: var(--accent); --color-accent-foreground: var(--foreground); --color-border: var(--border); --color-input: var(--border); --color-ring: var(--ring); --color-destructive: var(--destructive); --color-destructive-foreground: var(--primary-foreground); --color-popover: var(--card); --color-popover-foreground: var(--foreground); --font-sans: "Be Vietnam Pro", sans-serif;
+}
+:root { --background: oklch(.994 .002 90); --foreground: oklch(.19 .008 70); --card: oklch(1 0 0); --primary: oklch(.20 .008 70); --primary-foreground: oklch(1 0 0); --secondary: oklch(.957 .004 80); --muted: oklch(.965 .003 80); --muted-foreground: oklch(.53 .009 70); --accent: oklch(.65 .15 42); --border: oklch(.89 .005 80); --ring: oklch(.65 .15 42); --destructive: oklch(.55 .2 25); --radius: .25rem; }
+@layer base { * { border-color: var(--border); } body { background: var(--background); color: var(--foreground); font-family: var(--font-sans); } button, input, textarea { font: inherit; } ::selection { background: var(--accent); color: var(--primary-foreground); } }
+@utility text-accent { color: var(--accent); }
+@utility bg-accent { background: var(--accent); }
+@utility border-accent { border-color: var(--accent); }
+.site-container { width: min(100% - 48px, 1440px); margin-inline: auto; }
+.brand { font-family: "Be Vietnam Pro", sans-serif; font-weight: 700; letter-spacing: .22em; }
+.editorial-title { font-family: "Cormorant Garamond", "Be Vietnam Pro", serif; font-weight: 500; line-height: .9; letter-spacing: 0; }
+.product-image { aspect-ratio: 4/5; object-fit: cover; width: 100%; background: var(--secondary); }
+.swatch { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border); display: inline-block; }
+.swatch-ivory { background: oklch(.96 .01 90); } .swatch-dark { background: oklch(.24 .005 70); } .swatch-gray { background: oklch(.55 .01 75); } .swatch-sage { background: oklch(.72 .055 145); } .swatch-denim { background: oklch(.31 .018 260); } .swatch-blue { background: oklch(.41 .055 250); }
+.swatch-active { outline: 1px solid var(--foreground); outline-offset: 3px; }
+.sale-panel { background: var(--primary); color: var(--primary-foreground); }
+.input-field { height: 44px; border: 1px solid var(--border); background: var(--card); padding: 0 14px; width: 100%; outline: none; border-radius: 2px; font-size: 13px; }
+.input-field:focus { border-color: var(--ring); box-shadow: 0 0 0 2px color-mix(in oklab, var(--ring) 18%, transparent); }
+.input-field::placeholder { color: var(--muted-foreground); }
+.nav-link { position: relative; } .nav-link:after { content:""; position:absolute; left:0; bottom:-5px; width:0; height:1px; background:var(--foreground); transition:width .2s; } .nav-link:hover:after, .nav-link[data-status="active"]:after { width:100%; }
+@media (max-width: 640px) { .site-container { width: min(100% - 32px, 1440px); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }

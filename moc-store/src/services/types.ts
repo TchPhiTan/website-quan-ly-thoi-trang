@@ -1,0 +1,13 @@
+export type Swatch = { name: string; className: string };
+export type ProductStatus = "Đang bán" | "Ngừng bán";
+export type Product = { id: string; name: string; category: string; price: number; image: string; colors: Swatch[]; sizes: string[]; label?: string | undefined; description: string; stock: number; status: ProductStatus; createdAt: string };
+export type OrderStatus = "Chờ duyệt" | "Đã duyệt" | "Đã hủy";
+export type OrderLine = { productId: string; quantity: number };
+export type Order = { id: string; customer: string; phone: string; address: string; date: string; items: string; lines: OrderLine[]; total: number; status: OrderStatus };
+export type PromoKind = "Giảm tiền" | "Giảm %" | "Miễn phí vận chuyển";
+export type Promo = { id: string; code: string; title: string; kind: PromoKind; value: number; minOrder: number; expires: string; active: boolean };
+export type Review = { id: string; productName: string; customer: string; rating: number; text: string; date: string; reply: string };
+export type User = { id: string; name: string; email: string; phone: string; role: "Khách hàng" | "Nhân viên"; active: boolean; createdAt: string };
+export type Line = { productId: string; expected: number; counted: number | null };
+export type Session = { id: string; name: string; condition: string; createdAt: string; lines: Line[]; applied: boolean };
+export type StockLog = { id: number; productId: string; date: string; delta: number; note: string };

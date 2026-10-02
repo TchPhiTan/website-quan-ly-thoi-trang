@@ -1,0 +1,362 @@
+// ================================================
+// PRISMA SCHEMA - ShopDB (SQL Server / Azure SQL)
+// Dành cho SQL Server 2016+ / SSMS
+// Fix: onDelete/onUpdate NoAction để tránh cyclic cascade
+// ================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+// ================================================
+// 1. ROLES - Phân quyền hệ thống
+// ================================================
+model roles {
+  id          String   @id @default(uuid()) @db.UniqueIdentifier
+  name        String   @unique @db.VarChar(50)
+  description String?
+  created_at  DateTime @default(now())
+
+  users users[]
+}
+
+// ================================================
+// 2. USERS - Tài khoản người dùng
+// ================================================
+model users {
+  id         String    @id @default(uuid()) @db.UniqueIdentifier
+  full_name  String    @db.VarChar(200)
+  email      String    @unique @db.VarChar(254)
+  password   String    @db.VarChar(255)
+  token_user String    @unique @default(uuid()) @db.UniqueIdentifier
+  phone      String?   @db.VarChar(20)
+  avatar     String?
+  status     String    @default("active") @db.VarChar(20)
+  deleted    Boolean   @default(false)
+  deleted_at DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  gender     String?   @db.VarChar(20)
+  dob        DateTime? @db.Date
+  address    String?   @db.VarChar(500)
+  height_cm  Int?
+  weight_kg  Decimal?  @db.Decimal(5, 1)
+  role       String    @db.UniqueIdentifier
+
+  roles           roles             @relation(fields: [role], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  addresses       addresses[]
+  cart            cart?
+  orders          orders[]
+  product_reviews product_reviews[]
+  coupon_usages   coupon_usages[]
+}
+
+// ================================================
+// 3. ADDRESSES - Sổ địa chỉ giao hàng
+// ================================================
+model addresses {
+  id         String   @id @default(uuid()) @db.UniqueIdentifier
+  token_user String   @db.UniqueIdentifier
+  full_name  String   @db.VarChar(200)
+  phone      String   @db.VarChar(20)
+  city       String   @db.VarChar(100)
+  district   String?  @db.VarChar(100)
+  ward       String?  @db.VarChar(100)
+  line1      String   @db.VarChar(500)
+  is_default Boolean  @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  users users @relation(fields: [token_user], references: [token_user], onDelete: NoAction, onUpdate: NoAction)
+}
+
+// ================================================
+// 4. CATEGORIES - Danh mục sản phẩm (cây thư mục)
+// ================================================
+model categories {
+  id          String    @id @default(uuid()) @db.UniqueIdentifier
+  title       String    @db.VarChar(200)
+  parent_id   String?   @db.UniqueIdentifier
+  description String?
+  thumbnail   String?
+  status      String    @default("active") @db.VarChar(20)
+  is_featured Boolean   @default(false)
+  slug        String    @unique @db.VarChar(200)
+  position    Int       @default(0)
+  deleted     Boolean   @default(false)
+  deleted_at  DateTime?
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  parent   categories?  @relation("CategoryTree", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children categories[] @relation("CategoryTree")
+  products products[]
+}
+
+// ================================================
+// 5. COLORS - Màu sắc sản phẩm
+// ================================================
+model colors {
+  id         String   @id @default(uuid()) @db.UniqueIdentifier
+  name       String   @db.VarChar(100)
+  slug       String   @unique @db.VarChar(100)
+  hex        String?  @db.VarChar(7)
+  swatch_url String?
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  product_variants product_variants[]
+}
+
+// ================================================
+// 6. PRODUCTS - Sản phẩm
+// ================================================
+model products {
+  id           String    @id @default(uuid()) @db.UniqueIdentifier
+  title        String    @db.VarChar(200)
+  description  String?
+  price        Decimal   @db.Decimal(12, 0)
+  discount     Int       @default(0)
+  category_id  String    @db.UniqueIdentifier
+  size         String    @default("[]") // JSON array dạng text
+  thumbnail    String?
+  status       String    @default("active") @db.VarChar(20)
+  deleted      Boolean   @default(false)
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  slug         String    @unique @db.VarChar(200)
+  sold_count   Int       @default(0)
+  rating_avg   Decimal   @default(0) @db.Decimal(3, 2)
+  rating_count Int       @default(0)
+
+  categories          categories          @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  product_variants    product_variants[]
+  order_items         order_items[]
+  cart_items          cart_items[]
+  coupon_products     coupon_products[]
+  inventory_movements inventory_movements[]
+}
+
+// ================================================
+// 7. PRODUCT_VARIANTS - Biến thể sản phẩm
+// ================================================
+model product_variants {
+  id                String  @id @default(uuid()) @db.UniqueIdentifier
+  product_id        String  @db.UniqueIdentifier
+  color             String? @db.VarChar(100)
+  size              String  @db.VarChar(50)
+  images            String  @default("[]") // JSON array
+  stock             Int     @default(0)
+  color_id          String  @db.UniqueIdentifier
+  color_hex_legacy  String? @db.VarChar(7)
+  swatch_url_legacy String?
+
+  @@unique([product_id, color_id, size], name: "UQ_variants_product_color_size")
+
+  products             products              @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  colors               colors                @relation(fields: [color_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cart_items           cart_items[]
+  order_items          order_items[]
+  inventory_movements  inventory_movements[]
+}
+
+// ================================================
+// 8. COUPONS - Mã giảm giá
+// ================================================
+model coupons {
+  coupon_id       String    @id @default(uuid()) @db.UniqueIdentifier
+  code            String    @unique @db.VarChar(50)
+  title           String    @db.VarChar(200)
+  type            String    @db.VarChar(20) // PERCENT | AMOUNT | FREESHIP
+  discount_value  Decimal   @default(0) @db.Decimal(12, 2)
+  start_date      DateTime
+  end_date        DateTime
+  usage_limit     Int?
+  used_count      Int       @default(0)
+  min_order_value Decimal   @default(0) @db.Decimal(12, 2)
+  max_discount    Decimal?  @db.Decimal(12, 2)
+  status          String    @default("INACTIVE") @db.VarChar(20)
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  coupon_products coupon_products[]
+  orders          orders[]
+  cart            cart[]
+  coupon_usages   coupon_usages[]
+}
+
+// ================================================
+// 9. COUPON_PRODUCTS
+// ================================================
+model coupon_products {
+  coupon_id  String @db.UniqueIdentifier
+  product_id String @db.UniqueIdentifier
+
+  @@id([coupon_id, product_id])
+
+  coupons  coupons  @relation(fields: [coupon_id], references: [coupon_id], onDelete: NoAction, onUpdate: NoAction)
+  products products @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+// ================================================
+// 10. CART - Giỏ hàng
+// ================================================
+model cart {
+  id           String   @id @default(uuid()) @db.UniqueIdentifier
+  token_user   String   @unique @db.UniqueIdentifier
+  grand_total  Decimal  @default(0) @db.Decimal(12, 0)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  shipping_fee Decimal  @default(0) @db.Decimal(12, 0)
+  coupon_id    String?  @db.UniqueIdentifier
+
+  users      users        @relation(fields: [token_user], references: [token_user], onDelete: NoAction, onUpdate: NoAction)
+  coupons    coupons?     @relation(fields: [coupon_id], references: [coupon_id], onDelete: NoAction, onUpdate: NoAction)
+  cart_items cart_items[]
+}
+
+// ================================================
+// 11. CART_ITEMS - Chi tiết giỏ hàng
+// ================================================
+model cart_items {
+  id            String  @id @default(uuid()) @db.UniqueIdentifier
+  cart_id       String  @db.UniqueIdentifier
+  product_id    String  @db.UniqueIdentifier
+  variant_id    String  @db.UniqueIdentifier
+  image_url     String?
+  size          String? @db.VarChar(50)
+  color         String? @db.VarChar(100)
+  price_unit    Decimal @db.Decimal(12, 0)
+  quantity      Int
+  line_discount Decimal @default(0) @db.Decimal(18, 0)
+
+  @@unique([cart_id, variant_id])
+
+  cart             cart             @relation(fields: [cart_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  products         products         @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  product_variants product_variants @relation(fields: [variant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+// ================================================
+// 12. ORDERS - Đơn hàng
+// ================================================
+model orders {
+  id                 String   @id @default(uuid()) @db.UniqueIdentifier
+  token_user         String   @db.UniqueIdentifier
+  status             String   @default("pending") @db.VarChar(20)
+  payment_method     String   @db.VarChar(30)
+  coupon_id          String?  @db.UniqueIdentifier
+  subtotal           Decimal  @default(0) @db.Decimal(18, 0)
+  discount_total     Decimal  @default(0) @db.Decimal(18, 0)
+  shipping_fee       Decimal  @default(0) @db.Decimal(18, 0)
+  // grand_total dùng virtual field hoặc tính trong code (PostgreSQL không có PERSISTED)
+  shipping_full_name String   @db.VarChar(200)
+  shipping_phone     String   @db.VarChar(20)
+  shipping_line1     String   @db.VarChar(500)
+  shipping_city      String   @db.VarChar(100)
+  shipping_district  String?  @db.VarChar(100)
+  shipping_ward      String?  @db.VarChar(100)
+  note               String?
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+
+  users               users               @relation(fields: [token_user], references: [token_user], onDelete: NoAction, onUpdate: NoAction)
+  coupons             coupons?            @relation(fields: [coupon_id], references: [coupon_id], onDelete: NoAction, onUpdate: NoAction)
+  order_items         order_items[]
+  coupon_usages       coupon_usages[]
+  inventory_movements inventory_movements[]
+}
+
+// ================================================
+// 13. ORDER_ITEMS - Chi tiết đơn hàng
+// ================================================
+model order_items {
+  id                 String   @id @default(uuid()) @db.UniqueIdentifier
+  order_id           String   @db.UniqueIdentifier
+  product_id         String   @db.UniqueIdentifier
+  variant_id         String   @db.UniqueIdentifier
+  product_slug       String?  @db.VarChar(200)
+  thumbnail_snapshot String?
+  price              Decimal  @db.Decimal(12, 0)
+  quantity           Int
+  size               String   @db.VarChar(50)
+  color              String   @db.VarChar(100)
+  created_at         DateTime @default(now())
+
+  orders              orders              @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  products            products            @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  product_variants    product_variants    @relation(fields: [variant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  inventory_movements inventory_movements[]
+  product_reviews     product_reviews?
+}
+
+// ================================================
+// 14. COUPON_USAGES - Lịch sử dùng mã giảm giá
+// ================================================
+model coupon_usages {
+  usage_id  String   @id @default(uuid()) @db.UniqueIdentifier
+  coupon_id String   @db.UniqueIdentifier
+  order_id  String   @unique @db.UniqueIdentifier
+  user_id   String   @db.UniqueIdentifier
+  used_at   DateTime @default(now())
+
+  coupons coupons @relation(fields: [coupon_id], references: [coupon_id], onDelete: NoAction, onUpdate: NoAction)
+  orders  orders  @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users   users   @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+// ================================================
+// 15. INVENTORY_MOVEMENTS - Nhật ký tồn kho
+// ================================================
+model inventory_movements {
+  id            String   @id @default(uuid()) @db.UniqueIdentifier
+  product_id    String   @db.UniqueIdentifier
+  variant_id    String   @db.UniqueIdentifier
+  order_item_id String?  @db.UniqueIdentifier
+  delta         Int
+  reason        String   @db.VarChar(30) // sales | returns | restock | adjustment
+  ref_order_id  String?  @db.UniqueIdentifier
+  note          String?
+  created_at    DateTime @default(now())
+
+  products         products         @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  product_variants product_variants @relation(fields: [variant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  orders           orders?          @relation(fields: [ref_order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  order_items      order_items?     @relation(fields: [order_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+// ================================================
+// 16. PRODUCT_REVIEWS - Đánh giá sản phẩm
+// ================================================
+model product_reviews {
+  id            String   @id @default(uuid()) @db.UniqueIdentifier
+  order_item_id String   @unique @db.UniqueIdentifier
+  token_user    String   @db.UniqueIdentifier
+  rating        Int
+  content       String?
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  order_items    order_items    @relation(fields: [order_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users          users          @relation(fields: [token_user], references: [token_user], onDelete: NoAction, onUpdate: NoAction)
+  review_replies review_replies[]
+}
+
+// ================================================
+// 17. REVIEW_REPLIES - Phản hồi đánh giá
+// ================================================
+model review_replies {
+  id         String   @id @default(uuid()) @db.UniqueIdentifier
+  review_id  String   @db.UniqueIdentifier
+  author     String   @default("admin") @db.VarChar(100)
+  content    String
+  created_at DateTime @default(now())
+
+  product_reviews product_reviews @relation(fields: [review_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}

@@ -1,0 +1,39 @@
+{
+  "name": "shopdb-backend",
+  "version": "1.0.0",
+  "description": "Backend API cho website quản lý thời trang - ShopDB",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:seed": "node prisma/seed.js",
+    "db:studio": "prisma studio",
+    "db:switch:sqlserver": "cp prisma/schema.sqlserver.prisma prisma/schema.prisma && npx prisma generate",
+    "db:switch:neon": "cp prisma/schema.postgresql.prisma prisma/schema.prisma && npx prisma generate",
+    "test": "node tests/test-flow.js"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "node-mailjet": "^6.0.6",
+    "uuid": "^10.0.0",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9",
+    "prisma": "^5.22.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
