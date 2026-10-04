@@ -8,8 +8,8 @@ const tones = { ok: "bg-emerald-50 text-emerald-700", warn: "bg-amber-50 text-am
 export function Badge({ tone, children }: { tone: keyof typeof tones; children: ReactNode }) {
   return <span className={`inline-block px-2 py-1 text-[10px] font-semibold uppercase tracking-wider ${tones[tone]}`}>{children}</span>;
 }
-export function Select({ value, onChange, options, label }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; label?: string | undefined }) {
-  return <select aria-label={label} value={value} onChange={e => onChange(e.target.value)} className="input-field bg-card h-10 w-auto min-w-40">{options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select>;
+export function Select({ value, onChange, options, label, disabled }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; label?: string | undefined; disabled?: boolean | undefined }) {
+  return <select aria-label={label} value={value} onChange={e => onChange(e.target.value)} disabled={disabled} className="input-field bg-card h-10 w-auto min-w-40 disabled:opacity-50">{options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select>;
 }
 export const opts = (arr: string[]) => arr.map(x => ({ value: x, label: x }));
 export function Field({ label, children }: { label: string; children: ReactNode }) { return <label className="block text-xs font-medium">{label}<span className="block mt-2">{children}</span></label>; }

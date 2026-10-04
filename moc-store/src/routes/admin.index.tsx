@@ -15,7 +15,7 @@ const series: Record<Range, [string, number][]> = {
 };
 const ranges: { value: Range; label: string }[] = [{ value: "today", label: "Hôm nay" }, { value: "7d", label: "7 ngày" }, { value: "30d", label: "30 ngày" }, { value: "year", label: "Năm" }];
 function Dashboard() {
-  const orders = useOrders(); const products = useProducts(); const reviews = useReviews(); const [range, setRange] = useState<Range>("7d");
+  const orders = useOrders(); const products = useProducts(); const { reviews } = useReviews(true, true); const [range, setRange] = useState<Range>("7d");
   const revenue = orders.filter(o => o.status !== "Đã hủy").reduce((s, o) => s + o.total, 0);
   const kpis = [{ label: "Doanh thu", value: money(revenue), to: "/admin/reports" as const }, { label: "Đơn hàng", value: String(orders.length), to: "/admin/orders" as const }, { label: "Sản phẩm sắp hết hàng", value: String(products.filter(p => p.stock <= LOW_STOCK).length), to: "/admin/inventory" as const }, { label: "Đánh giá chưa phản hồi", value: String(reviews.filter(r => !r.reply).length), to: "/admin/reviews" as const }];
   return <><PageHead eyebrow="Tổng quan" title="Bảng điều khiển" desc="Theo dõi nhanh tình hình cửa hàng." />

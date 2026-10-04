@@ -1,19 +1,19 @@
 import type { Order, Product, Promo, Review, Session, StockLog, User } from "./types";
 
 export type Db = { products: Product[]; orders: Order[]; promos: Promo[]; reviews: Review[]; users: User[]; sessions: Session[]; stockLog: StockLog[] };
-const KEY = "moc-db-v1";
+const KEY = "moc-db-v2";
 
 const p = (id: string, name: string, category: string, price: number, image: string, colors: [string, string][], sizes: string[], description: string, stock: number, createdAt: string, label?: string): Product =>
   ({ id, name, category, price, image, colors: colors.map(([n, c]) => ({ name: n, className: c })), sizes, description, stock, status: "Đang bán", createdAt, ...(label ? { label } : {}) });
 const products: Product[] = [
   p("ao-so-mi-ella", "Áo sơ mi cotton Ella", "Áo nữ", 489000, "white-shirt", [["Trắng", "swatch-ivory"], ["Đen", "swatch-dark"], ["Xám", "swatch-gray"]], ["S", "M", "L"], "Thiết kế dáng rộng thanh lịch từ chất cotton thoáng mát. Dễ dàng kết hợp cùng quần âu hoặc denim cho mọi ngày.", 42, "2026-08-12", "BÁN CHẠY"),
   p("blazer-noah", "Áo blazer dáng rộng Noah", "Áo nam", 1290000, "blazer", [["Than chì", "swatch-dark"], ["Xám", "swatch-gray"]], ["M", "L", "XL"], "Phom dáng hiện đại với phần vai mềm và chất vải đứng dáng. Một lựa chọn linh hoạt từ công sở đến cuối tuần.", 8, "2026-09-22", "MỚI"),
-  p("dam-midi-lina", "Đầm midi Lina", "Đầm", 790000, "dress", [["Xanh sage", "swatch-sage"], ["Đen", "swatch-dark"]], ["S", "M", "L"], "Đầm midi tối giản với đường cắt tinh tế, chất liệu nhẹ nhàng và phom dáng tôn vẻ tự nhiên.", 25, "2026-09-25", "MỚI"),
+  p("dam-midi-lina", "Đầm midi Lina", "Đầm nữ", 790000, "dress", [["Xanh sage", "swatch-sage"], ["Đen", "swatch-dark"]], ["S", "M", "L"], "Đầm midi tối giản với đường cắt tinh tế, chất liệu nhẹ nhàng và phom dáng tôn vẻ tự nhiên.", 25, "2026-09-25", "MỚI"),
   p("quan-jeans-ryan", "Quần jeans ống rộng Ryan", "Quần nam", 690000, "denim", [["Đen wash", "swatch-denim"], ["Xanh đậm", "swatch-blue"]], ["28", "29", "30", "31", "32"], "Chất denim bền đẹp, phom ống rộng thoải mái và dễ phối cùng mọi chiếc áo trong tủ đồ.", 3, "2026-07-30"),
   p("ao-thun-ryan", "Áo thun cotton Ryan", "Áo nam", 350000, "denim", [["Trắng kem", "swatch-ivory"], ["Đen", "swatch-dark"]], ["S", "M", "L", "XL"], "Chiếc áo thun cơ bản với chất cotton dày dặn, bề mặt mềm mịn và kiểu dáng thoải mái.", 60, "2026-09-05"),
-  p("quan-au-ella", "Quần âu suông Ella", "Quần nữ", 650000, "white-shirt", [["Xám", "swatch-gray"], ["Đen", "swatch-dark"]], ["S", "M", "L"], "Quần âu ống suông với cạp cao và chất vải rủ vừa phải, tạo cảm giác thoải mái suốt ngày dài.", 15, "2026-08-20"),
-  p("dam-midi-lina-den", "Đầm midi cổ tròn Lina", "Đầm", 790000, "dress", [["Xanh sage", "swatch-sage"], ["Đen", "swatch-dark"]], ["S", "M", "L"], "Thiết kế đầm midi thanh lịch, phù hợp cho những dịp đặc biệt hoặc những ngày muốn mặc đẹp giản đơn.", 5, "2026-09-27"),
-  p("blazer-noah-xam", "Áo blazer Noah xám", "Áo nam", 1290000, "blazer", [["Xám", "swatch-gray"], ["Than chì", "swatch-dark"]], ["M", "L", "XL"], "Blazer phom rộng hiện đại, sắc xám trung tính dễ phối và đường may chỉn chu.", 12, "2026-08-30"),
+  p("quan-au-ella", "Quần âu suông Ella", "Quần nữ", 650000, "white-shirt", [["Xám", "swatch-gray"], ["Đen", "swatch-dark"]], ["S", "M", "L"], "Quần âu ống suông với cạp cao và chất vải rủ vừa phải, tạo cảm giác thoải mái suốt ngày dài."),
+  p("dam-midi-lina-den", "Set Fina dáng dài", "Đầm nữ", 790000, "fina-set", [["Trắng kem", "swatch-ivory"]], ["S", "M", "L"], "Thiết kế đầm midi thanh lịch, phù hợp cho những dịp đặc biệt hoặc những ngày muốn mặc đẹp giản đơn.", 5, "2026-09-27"),
+  p("blazer-noah-xam", "Quần Noah dáng rộng", "Quần nam", 1290000, "noah-trouser", [["Xám", "swatch-gray"], ["Than chì", "swatch-dark"]], ["M", "L", "XL"], "Quần Noah dáng rộng với phom suông thoải mái, sắc xám trung tính dễ phối cho phong cách hiện đại.", 12, "2026-08-30"),
 ];
 
 const o = (id: string, customer: string, phone: string, address: string, date: string, items: string, lines: [string, number][], total: number, status: Order["status"]): Order =>
@@ -25,8 +25,8 @@ const orders: Order[] = [
   o("MOC26091401", "Nguyễn Thị Minh Anh", "0901234567", "125 Nguyễn Đình Chiểu, Xuân Hòa, TP. HCM", "2026-09-14", "Quần âu suông Ella x1, Áo sơ mi cotton Ella x1", [["quan-au-ella", 1], ["ao-so-mi-ella", 1]], 1139000, "Đã duyệt"),
   o("MOC26091801", "Nguyễn Thị Minh Anh", "0901234567", "125 Nguyễn Đình Chiểu, Xuân Hòa, TP. HCM", "2026-09-18", "Áo sơ mi cotton Ella x1", [["ao-so-mi-ella", 1]], 489000, "Đã duyệt"),
   o("MOC26092201", "Võ Hoàng Nam", "0977888999", "9 Nguyễn Huệ, Bến Nghé, TP. HCM", "2026-09-22", "Quần jeans ống rộng Ryan x2", [["quan-jeans-ryan", 2]], 1380000, "Đã duyệt"),
-  o("MOC26092601", "Đặng Mai Linh", "0966333444", "77 Điện Biên Phủ, Bình Thạnh, TP. HCM", "2026-09-26", "Đầm midi cổ tròn Lina x1", [["dam-midi-lina-den", 1]], 790000, "Chờ duyệt"),
-  o("MOC26092801", "Bùi Anh Tuấn", "0944555666", "3 Phan Chu Trinh, Hoàn Kiếm, Hà Nội", "2026-09-28", "Áo blazer Noah xám x1, Áo thun cotton Ryan x1", [["blazer-noah-xam", 1], ["ao-thun-ryan", 1]], 1640000, "Chờ duyệt"),
+  o("MOC26092601", "Đặng Mai Linh", "0966333444", "77 Điện Biên Phủ, Bình Thạnh, TP. HCM", "2026-09-26", "Set Fina dáng dài x1", [["dam-midi-lina-den", 1]], 790000, "Chờ duyệt"),
+  o("MOC26092801", "Bùi Anh Tuấn", "0944555666", "3 Phan Chu Trinh, Hoàn Kiếm, Hà Nội", "2026-09-28", "Quần Noah dáng rộng x1, Áo thun cotton Ryan x1", [["blazer-noah-xam", 1], ["ao-thun-ryan", 1]], 1640000, "Chờ duyệt"),
   o("MOC26092901", "Hoàng Yến Nhi", "0922777888", "56 Hai Bà Trưng, Quận 1, TP. HCM", "2026-09-29", "Áo sơ mi cotton Ella x2", [["ao-so-mi-ella", 2]], 978000, "Chờ duyệt"),
 ];
 

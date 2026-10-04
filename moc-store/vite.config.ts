@@ -7,7 +7,19 @@ import { nitro } from "nitro/vite";
 
 // Đã thay @lovable.dev/vite-tanstack-config bằng cấu hình tường minh.
 export default defineConfig({
-  server: { port: 3000 },
+  server: {
+    port: 3000,
+    proxy: {
+      '/assets': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+    },
+  },
   plugins: [
     tsConfigPaths(),
     tanstackStart({ server: { entry: "server" } }),

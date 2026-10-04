@@ -1,6 +1,6 @@
-# Website Quản Lý Thời Trang - ShopDB Backend (Node.js + Prisma ORM)
+# CNPM Nhóm 5 - Website Quản Lý Thời Trang (Node.js + Prisma ORM)
 
-Hệ thống Backend API RESTful hoàn chỉnh cho dự án Website Quản Lý Thời Trang (ShopDB), được xây dựng theo kiến trúc MVC chuẩn, hỗ trợ đầy đủ xác thực phân quyền, giỏ hàng, đặt hàng, quản lý kho, quản trị viên và báo cáo doanh thu.
+Hệ thống Backend API RESTful cho dự án CNPM Nhóm 5, được xây dựng theo kiến trúc MVC chuẩn, hỗ trợ xác thực phân quyền, giỏ hàng, đặt hàng, quản lý kho, quản trị viên và báo cáo doanh thu.
 
 ---
 
@@ -18,9 +18,9 @@ Hệ thống Backend API RESTful hoàn chỉnh cho dự án Website Quản Lý T
    - **Khách hàng (User)**: Quản lý giỏ hàng CRUD, áp dụng voucher mã giảm giá, checkout thanh toán (trừ kho và tạo lịch sử tồn kho `inventory_movements`), lịch sử đơn hàng, xem chi tiết, sổ địa chỉ, gửi đánh giá.
    - **Nhân viên (Staff)**: Xem danh sách đơn hàng, cập nhật trạng thái đơn (hỗ trợ cả `PUT` & `PATCH`), gửi email thông báo qua Mailjet, xử lý đổi trả hàng (RMA), nhập kho và theo dõi lịch sử biến động tồn kho.
    - **Quản trị viên (Admin)**: Quản lý CRUD sản phẩm + biến thể + màu sắc, quản lý danh mục, quản lý người dùng (khóa/mở khóa/phân quyền), quản lý mã giảm giá, báo cáo tổng quan & doanh thu theo ngày/tháng.
-3. **Hỗ trợ linh hoạt cả SQL Server và Cloud PostgreSQL (Neon)**:
-   - File schema mặc định trong git được cấu hình chuẩn cho **SQL Server 2016+ / SSMS**.
-   - Hỗ trợ chuyển đổi nhanh bằng 1 lệnh giữa SQL Server và PostgreSQL (Neon) mà không phải sửa code.
+3. **Sử dụng Cloud PostgreSQL (Neon)**:
+   - Prisma mặc định sử dụng `prisma/schema.postgresql.prisma`.
+   - Schema được đồng bộ lên Neon bằng `npm run db:push`.
 4. **Bộ Seed Data & Test E2E tự động**:
    - Script khởi tạo sẵn các quyền (`admin`, `staff`, `user`), màu sắc và tài khoản quản trị mẫu (`admin@shop.com` / `admin123`).
    - Bộ kịch bản kiểm thử tự động `tests/test-flow.js` kiểm tra 21/21 luồng nghiệp vụ thực tế.
@@ -36,12 +36,11 @@ Hệ thống Backend API RESTful hoàn chỉnh cho dự án Website Quản Lý T
 
 ---
 
-## 🚀 Hướng Dẫn Cài Đặt & Khởi Động Cho Người Dùng SQL Server (Windows)
+## 🚀 Hướng Dẫn Cài Đặt & Khởi Động Với Neon PostgreSQL
 
-### Bước 1: Tạo Database trên SSMS
-1. Mở **SQL Server Management Studio (SSMS)** và đăng nhập vào SQL Server của bạn.
-2. Mở và chạy file `01_create_shopdb.sql` (bấm Execute hoặc `F5`) để tự động tạo database `ShopDB` và toàn bộ các bảng.
-3. (Tùy chọn) Chạy `02_check_connection.sql` để kiểm tra các bảng đã được tạo đầy đủ.
+### Bước 1: Tạo project trên Neon
+1. Tạo một project PostgreSQL trên Neon.
+2. Lấy connection string dạng `postgresql://...` từ Neon Dashboard.
 
 ### Bước 2: Cài đặt thư viện
 Trong thư mục dự án, mở Terminal / PowerShell và chạy:
@@ -54,19 +53,25 @@ Tạo file `.env` từ file mẫu:
 ```bash
 cp .env.example .env
 ```
-Mở file `.env` và điền chuỗi kết nối SQL Server của bạn:
+Mở file `.env` và điền chuỗi kết nối Neon của bạn:
 ```env
-DATABASE_URL="sqlserver://localhost:1433;database=ShopDB;user=sa;password=MatKhauCuaBan;encrypt=true;trustServerCertificate=true"
+DATABASE_URL="postgresql://username:password@ep-xxxx.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
 SESSION_SECRET="shopdb-super-secret-key"
 PORT=8080
 ```
 
-### Bước 4: Khởi tạo Prisma Client & Dữ liệu mẫu (Seed Data)
+### Bước 4: Đồng bộ schema, Prisma Client & dữ liệu mẫu
 ```bash
-# 1. Generate Prisma Client cho SQL Server
+# 1. Kiểm tra schema PostgreSQL
+npm run db:check
+
+# 2. Đồng bộ bảng lên Neon
+npm run db:push
+
+# 3. Generate Prisma Client
 npx prisma generate
 
-# 2. Tạo sẵn các Roles (admin, staff, user) và tài khoản Admin mẫu
+# 4. Tạo dữ liệu mẫu
 npm run db:seed
 ```
 *Tài khoản Admin mặc định vừa tạo:*
@@ -88,25 +93,6 @@ npm start
 Server sẽ chạy tại: **`http://localhost:8080`**
 
 ---
-
-## 💡 Dành Cho Người Dùng macOS Hoặc Muốn Dùng Neon Cloud (PostgreSQL)
-
-Nếu bạn dùng Mac hoặc muốn dùng Database trên Cloud Neon để nhẹ máy:
-```bash
-# 1. Chuyển schema sang PostgreSQL / Neon
-npm run db:switch:neon
-
-# 2. Cấu hình DATABASE_URL trong .env trỏ tới connection string của Neon
-# DATABASE_URL="postgresql://neondb_owner:***@ep-***.aws.neon.tech/neondb?sslmode=require"
-
-# 3. Đồng bộ bảng lên Neon
-npm run db:push
-
-# 4. Tạo dữ liệu mẫu
-npm run db:seed
-```
-
-*(Khi muốn quay lại SQL Server: chỉ cần chạy `npm run db:switch:sqlserver`)*
 
 ---
 
@@ -156,8 +142,6 @@ website-quan-ly-thoi-trang/
 │   └── test-flow.js                  ← Kịch bản kiểm thử E2E tự động
 │
 ├── 📁 moc-store/                     ← Frontend React + Vite
-├── 01_create_shopdb.sql              ← Script SQL Server tạo DB và bảng
-├── 02_check_connection.sql           ← Script SQL Server kiểm tra dữ liệu
 ├── server.js                         ← File khởi chạy server
 ├── package.json
 └── .env.example                      ← Mẫu biến môi trường

@@ -3,7 +3,7 @@ const { requireAuth, requireRole } = require('../middleware/auth');
 const {
     getOrders, updateOrderStatus, notifyOrder, processRma,
     restock, getInventory, getInventoryMovements,
-    replyReview,
+    getReviews, replyReview,
 } = require('../controllers/staff.controller');
 
 const router = Router();
@@ -24,6 +24,7 @@ router.post('/inventory/restock', restock);
 router.get('/inventory/movements', getInventoryMovements);
 
 // Đánh giá
+router.get('/reviews', getReviews);
 router.post('/reviews/:id/reply', replyReview);
 
 module.exports = router;

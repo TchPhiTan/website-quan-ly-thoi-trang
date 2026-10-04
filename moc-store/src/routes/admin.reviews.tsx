@@ -9,8 +9,8 @@ import { reviewService } from "@/services";
 export const Route = createFileRoute("/admin/reviews")({ head: () => ({ meta: [{ title: "Quản lý đánh giá — MỘC" }] }), component: Reviews });
 const Stars = ({ n }: { n: number }) => <span className="inline-flex">{[1, 2, 3, 4, 5].map(i => <Star key={i} className={`size-4 ${i <= n ? "fill-accent text-accent" : "text-muted-foreground"}`} />)}</span>;
 function Reviews() {
-  const a = useAdmin(); const reviews = useReviews(); const [open, setOpen] = useState<Review | null>(null); const [text, setText] = useState(""); const [err, setErr] = useState("");
-  const send = () => { if (!open) return; if (text.trim().length < 5) { setErr("Phản hồi cần có ít nhất 5 ký tự."); return; } void a.run(reviewService.reply(open.id, text.trim()), "Đã gửi phản hồi"); setOpen(null); };
+  const a = useAdmin(); const { reviews, reload } = useReviews(a.signedIn, true); const [open, setOpen] = useState<Review | null>(null); const [text, setText] = useState(""); const [err, setErr] = useState("");
+  const send = async () => { if (!open) return; if (text.trim().length < 5) { setErr("Phản hồi cần có ít nhất 5 ký tự."); return; } if (await a.run(reviewService.reply(open.id, text.trim(), a.signedIn), "Đã gửi phản hồi")) { await reload(); setOpen(null); } };
   return <><PageHead eyebrow="Khách hàng" title="Quản lý đánh giá" />
     <Table><thead><tr><th className={th}>Sản phẩm</th><th className={th}>Khách hàng</th><th className={th}>Đánh giá</th><th className={th}>Nội dung</th><th className={th}>Ngày</th><th className={th}>Phản hồi</th><th className={th}>Thao tác</th></tr></thead>
       <tbody>{reviews.map(r => <tr key={r.id}><td className={td}>{r.productName}</td><td className={td}>{r.customer}</td><td className={td}><Stars n={r.rating} /></td><td className={`${td} max-w-xs truncate`}>{r.text}</td><td className={td}>{r.date}</td><td className={td}><Badge tone={r.reply ? "ok" : "warn"}>{r.reply ? "Đã phản hồi" : "Chưa phản hồi"}</Badge></td>

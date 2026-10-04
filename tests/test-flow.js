@@ -109,7 +109,7 @@ async function runTests() {
             category_id: categoryId,
             size: JSON.stringify(['M', 'L', 'XL']),
             description: 'Vải cotton thoáng mát cao cấp',
-            thumbnail: 'https://example.com/thumb.jpg',
+            thumbnail: 'http://localhost:8080/assets/products/Noah-shirt-front.jpg',
             status: 'active',
         }, adminCookie);
         assert(prodRes.status === 201 && prodRes.data?.data?.id, 'Tạo sản phẩm mới', prodRes.data);
@@ -127,7 +127,7 @@ async function runTests() {
                 color_id: color.id,
                 size: 'L',
                 stock: 50,
-                images: ['https://example.com/img1.jpg'],
+                images: ['http://localhost:8080/assets/products/Noah-shirt-front.jpg'],
             }, adminCookie);
             assert(varRes.status === 201 && varRes.data?.data?.id, 'Tạo biến thể sản phẩm (Size L - Màu Đen)', varRes.data);
             variantId = varRes.data?.data?.id;

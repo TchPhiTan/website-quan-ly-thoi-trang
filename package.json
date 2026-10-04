@@ -1,7 +1,7 @@
 {
-  "name": "shopdb-backend",
+  "name": "cnpm-nhom-5-fashion",
   "version": "1.0.0",
-  "description": "Backend API cho website quản lý thời trang - ShopDB",
+  "description": "Website quản lý thời trang CNPM - Nhóm 5",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -10,12 +10,14 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:seed": "node prisma/seed.js",
+    "db:seed-catalog": "node prisma/seed-catalog.js",
+    "db:sync-images": "node prisma/sync-product-images.js",
     "db:studio": "prisma studio",
-    "db:switch:sqlserver": "cp prisma/schema.sqlserver.prisma prisma/schema.prisma && npx prisma generate",
-    "db:switch:neon": "cp prisma/schema.postgresql.prisma prisma/schema.prisma && npx prisma generate",
+    "db:check": "prisma validate",
     "test": "node tests/test-flow.js"
   },
   "prisma": {
+    "schema": "prisma/schema.postgresql.prisma",
     "seed": "node prisma/seed.js"
   },
   "dependencies": {

@@ -5,16 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHead, Badge, Select, Modal, Field, Table, th, td } from "@/components/admin/admin-ui";
 import { useAdmin, stockState, withinDays, type AProduct } from "@/lib/admin-data";
-import { useProducts, useStockLog } from "@/services/hooks";
-import { productService } from "@/services";
+import { useInventory, useStockLog } from "@/services/hooks";
+import { inventoryService } from "@/services";
 export const Route = createFileRoute("/admin/inventory")({ head: () => ({ meta: [{ title: "Quản lý tồn kho — MỘC" }] }), component: Inventory });
 const timeOpts = [{ value: "0", label: "Tất cả thời gian" }, { value: "7", label: "7 ngày qua" }, { value: "30", label: "30 ngày qua" }];
 function Inventory() {
-  const a = useAdmin(); const products = useProducts(); const stockLog = useStockLog(); const [days, setDays] = useState("0"); const [sel, setSel] = useState<string[]>([]); const [detail, setDetail] = useState<AProduct | null>(null); const [edit, setEdit] = useState<AProduct | null>(null); const [qty, setQty] = useState(""); const [note, setNote] = useState(""); const [err, setErr] = useState("");
+  const a = useAdmin(); const products = useInventory(); const stockLog = useStockLog(); const [days, setDays] = useState("0"); const [sel, setSel] = useState<string[]>([]); const [detail, setDetail] = useState<AProduct | null>(null); const [edit, setEdit] = useState<AProduct | null>(null); const [qty, setQty] = useState(""); const [note, setNote] = useState(""); const [err, setErr] = useState("");
   const lastChange = (id: string) => stockLog.find(l => l.productId === id)?.date ?? "—";
   const rows = products.filter(p => days === "0" || withinDays(lastChange(p.id), Number(days)));
   const all = rows.length > 0 && rows.every(p => sel.includes(p.id));
-  const save = () => { const n = Number(qty); if (!edit || qty === "" || !Number.isInteger(n) || n < 0) { setErr("Số lượng phải là số nguyên không âm."); return; } void a.run(productService.setStock(edit.id, n, note.trim() || "Điều chỉnh thủ công"), "Đã cập nhật số lượng tồn kho"); setEdit(null); setErr(""); };
+  const save = () => { const n = Number(qty); if (!edit || qty === "" || !Number.isInteger(n) || n < 0) { setErr("Số lượng phải là số nguyên không âm."); return; } void a.run(inventoryService.restock(edit, n, note.trim() || "Điều chỉnh thủ công"), "Đã cập nhật số lượng tồn kho"); setEdit(null); setErr(""); };
   return <><PageHead eyebrow="Kho hàng" title="Quản lý tồn kho" desc="Ngưỡng sắp hết hàng: từ 10 sản phẩm trở xuống." />
     <div className="flex flex-wrap items-center gap-3 mb-5"><Select label="Lọc theo thời gian cập nhật" value={days} onChange={setDays} options={timeOpts} /><span className="text-xs text-muted-foreground ml-auto">{sel.length > 0 ? `Đã chọn ${sel.length}` : `${rows.length} sản phẩm`}</span></div>
     <Table><thead><tr><th className={th}><input type="checkbox" aria-label="Chọn tất cả" className="accent-accent size-4" checked={all} onChange={e => setSel(e.target.checked ? rows.map(p => p.id) : [])} /></th><th className={th}>Sản phẩm</th><th className={th}>Tồn kho</th><th className={th}>Tình trạng</th><th className={th}>Cập nhật gần nhất</th><th className={th}>Thao tác</th></tr></thead>

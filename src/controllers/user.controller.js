@@ -30,7 +30,7 @@ const getCart = async (req, res) => {
                         product_variants: { include: { colors: true } },
                     },
                 },
-                coupons: { select: { code: true, title: true, type: true, discount_value: true } },
+                coupons: { select: { coupon_id: true, code: true, title: true, type: true, discount_value: true, min_order_value: true, end_date: true, status: true } },
             },
         });
 
@@ -142,7 +142,15 @@ const applyCoupon = async (req, res) => {
             return res.status(400).json({ error: 'Mã giảm giá không hợp lệ hoặc đã hết hạn' });
         }
 
-        const cart = await db.cart.findUnique({ where: { token_user: req.user.token_user } });
+        const cart = await db.cart.findUnique({
+            where: { token_user: req.user.token_user },
+            include: { cart_items: true },
+        });
+        if (!cart) return res.status(404).json({ error: 'Giỏ hàng không tồn tại' });
+        const subtotal = cart.cart_items.reduce((total, item) => total + Number(item.price_unit) * item.quantity, 0);
+        if (subtotal < Number(coupon.min_order_value)) {
+            return res.status(400).json({ error: `Đơn hàng cần từ ${Number(coupon.min_order_value).toLocaleString('vi-VN')}₫ để dùng mã này.` });
+        }
         await db.cart.update({
             where: { id: cart.id },
             data: { coupon_id: coupon.coupon_id },
@@ -150,7 +158,16 @@ const applyCoupon = async (req, res) => {
 
         res.json({
             message: 'Áp mã giảm giá thành công',
-            coupon: { title: coupon.title, type: coupon.type, discount_value: coupon.discount_value },
+            coupon: {
+                coupon_id: coupon.coupon_id,
+                code: coupon.code,
+                title: coupon.title,
+                type: coupon.type,
+                discount_value: coupon.discount_value,
+                min_order_value: coupon.min_order_value,
+                end_date: coupon.end_date,
+                status: coupon.status,
+            },
         });
     } catch (error) {
         logger.error('Lỗi áp mã giảm giá', { error: error.message });
@@ -363,24 +380,73 @@ const getOrderDetail = async (req, res) => {
     }
 };
 
-// POST /user/orders/:id/cancel — Hủy đơn hàng (chỉ khi pending)
+// POST /user/orders/:id/cancel — Hủy đơn hàng (chỉ khi pending) và hoàn kho, hoàn voucher
 const cancelOrder = async (req, res) => {
     try {
         const { id } = req.params;
-        const order = await db.orders.findFirst({
-            where: { id, token_user: req.user.token_user },
+        const token_user = req.user.token_user;
+
+        await db.$transaction(async (tx) => {
+            const order = await tx.orders.findFirst({
+                where: { id, token_user },
+                include: { order_items: true },
+            });
+
+            if (!order) {
+                const err = new Error('Không tìm thấy đơn hàng');
+                err.status = 404;
+                throw err;
+            }
+            if (order.status !== 'pending') {
+                const err = new Error('Chỉ có thể hủy đơn hàng ở trạng thái "Chờ xác nhận"');
+                err.status = 400;
+                throw err;
+            }
+
+            // 1. Cập nhật trạng thái đơn thành cancelled
+            await tx.orders.update({
+                where: { id },
+                data: { status: 'cancelled' },
+            });
+
+            // 2. Hoàn lại tồn kho cho từng sản phẩm và ghi nhận inventory_movements
+            for (const item of order.order_items) {
+                if (item.variant_id) {
+                    await tx.product_variants.update({
+                        where: { id: item.variant_id },
+                        data: { stock: { increment: item.quantity } },
+                    });
+
+                    await tx.inventory_movements.create({
+                        data: {
+                            id: uuidv4(),
+                            product_id: item.product_id,
+                            variant_id: item.variant_id,
+                            order_item_id: item.id,
+                            delta: item.quantity,
+                            reason: 'cancelled',
+                            ref_order_id: id,
+                        },
+                    });
+                }
+            }
+
+            // 3. Hoàn lại số lượt sử dụng voucher nếu đơn hàng có áp dụng
+            if (order.coupon_id) {
+                await tx.coupons.update({
+                    where: { coupon_id: order.coupon_id },
+                    data: { used_count: { decrement: 1 } },
+                });
+                await tx.coupon_usages.deleteMany({
+                    where: { order_id: id },
+                });
+            }
         });
 
-        if (!order) return res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
-        if (order.status !== 'pending') {
-            return res.status(400).json({ error: 'Chỉ có thể hủy đơn hàng ở trạng thái "Chờ xác nhận"' });
-        }
-
-        await db.orders.update({ where: { id }, data: { status: 'cancelled' } });
-        res.json({ message: 'Đã hủy đơn hàng' });
+        res.json({ message: 'Đã hủy đơn hàng thành công, tồn kho và voucher đã được hoàn trả.' });
     } catch (error) {
         logger.error('Lỗi hủy đơn hàng', { error: error.message });
-        res.status(500).json({ error: 'Lỗi hệ thống' });
+        res.status(error.status || 500).json({ error: error.message || 'Lỗi hệ thống' });
     }
 };
 

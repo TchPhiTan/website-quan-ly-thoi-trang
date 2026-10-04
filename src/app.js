@@ -6,6 +6,7 @@
 const express = require('express');
 const cors = require('cors');
 const session = require('express-session');
+const path = require('path');
 
 const authRoutes   = require('./routes/auth.routes');
 const publicRoutes = require('./routes/public.routes');
@@ -20,9 +21,19 @@ const app = express();
 // ==========================================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/assets', express.static(path.join(__dirname, '../moc-store/src/assets')));
+
+const allowedOrigins = new Set([
+    process.env.FRONTEND_URL || 'http://localhost:3000',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+]);
 
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+        return callback(new Error('Origin không được phép'));
+    },
     credentials: true,
 }));
 

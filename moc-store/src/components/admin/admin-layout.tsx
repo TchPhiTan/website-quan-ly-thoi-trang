@@ -16,6 +16,7 @@ export function AdminLayout() {
   const a = useAdmin(); const path = useRouterState({ select: s => s.location.pathname }); const [open, setOpen] = useState(false);
   const toast = a.toast && <div role="status" className="fixed z-[100] bottom-6 right-6 bg-primary text-primary-foreground shadow-lg px-5 py-3 text-sm flex items-center gap-3"><Check className="size-4 text-accent" />{a.toast}</div>;
   if (path === "/admin/login") return <><Outlet />{toast}</>;
+  if (a.initializing) return <div className="min-h-screen flex items-center justify-center bg-secondary text-sm text-muted-foreground">Đang kiểm tra phiên đăng nhập...</div>;
   if (!a.signedIn) return <Navigate to="/admin/login" />;
   const active = (to: string) => to === "/admin" ? path === "/admin" || path === "/admin/" : path.startsWith(to);
   return <div className="min-h-screen bg-background md:grid md:grid-cols-[260px_1fr]">

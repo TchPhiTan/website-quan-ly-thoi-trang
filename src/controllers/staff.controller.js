@@ -62,25 +62,68 @@ const updateOrderStatus = async (req, res) => {
             return res.status(400).json({ error: `Trạng thái không hợp lệ. Cho phép: ${ORDER_STATUSES.join(', ')}` });
         }
 
-        const order = await db.orders.findUnique({ where: { id } });
-        if (!order) return res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
-
-        // Cập nhật sold_count khi đơn hoàn thành
-        if (status === 'completed' && order.status !== 'completed') {
-            const items = await db.order_items.findMany({ where: { order_id: id } });
-            for (const item of items) {
-                await db.products.update({
-                    where: { id: item.product_id },
-                    data: { sold_count: { increment: item.quantity } },
-                });
+        await db.$transaction(async (tx) => {
+            const order = await tx.orders.findUnique({
+                where: { id },
+                include: { order_items: true },
+            });
+            if (!order) {
+                const err = new Error('Không tìm thấy đơn hàng');
+                err.status = 404;
+                throw err;
             }
-        }
 
-        await db.orders.update({ where: { id }, data: { status } });
+            // 1. Cập nhật sold_count khi đơn hoàn thành
+            if (status === 'completed' && order.status !== 'completed') {
+                for (const item of order.order_items) {
+                    await tx.products.update({
+                        where: { id: item.product_id },
+                        data: { sold_count: { increment: item.quantity } },
+                    });
+                }
+            }
+
+            // 2. Hoàn tồn kho và voucher khi nhân viên hủy đơn (nếu đơn chưa bị hủy trước đó)
+            if (status === 'cancelled' && order.status !== 'cancelled') {
+                for (const item of order.order_items) {
+                    if (item.variant_id) {
+                        await tx.product_variants.update({
+                            where: { id: item.variant_id },
+                            data: { stock: { increment: item.quantity } },
+                        });
+
+                        await tx.inventory_movements.create({
+                            data: {
+                                id: uuidv4(),
+                                product_id: item.product_id,
+                                variant_id: item.variant_id,
+                                order_item_id: item.id,
+                                delta: item.quantity,
+                                reason: 'cancelled',
+                                ref_order_id: id,
+                            },
+                        });
+                    }
+                }
+
+                if (order.coupon_id) {
+                    await tx.coupons.update({
+                        where: { coupon_id: order.coupon_id },
+                        data: { used_count: { decrement: 1 } },
+                    });
+                    await tx.coupon_usages.deleteMany({
+                        where: { order_id: id },
+                    });
+                }
+            }
+
+            await tx.orders.update({ where: { id }, data: { status } });
+        });
+
         res.json({ message: `Đã cập nhật trạng thái đơn hàng thành "${status}"` });
     } catch (error) {
         logger.error('Lỗi cập nhật trạng thái đơn', { error: error.message });
-        res.status(500).json({ error: 'Lỗi hệ thống' });
+        res.status(error.status || 500).json({ error: error.message || 'Lỗi hệ thống' });
     }
 };
 
@@ -256,6 +299,25 @@ const getInventoryMovements = async (req, res) => {
 };
 
 // POST /staff/reviews/:id/reply — Phản hồi đánh giá
+const getReviews = async (req, res) => {
+    try {
+        const reviews = await db.product_reviews.findMany({
+            orderBy: { created_at: 'desc' },
+            include: {
+                users: { select: { full_name: true } },
+                order_items: {
+                    include: { products: { select: { title: true, slug: true, thumbnail: true } } },
+                },
+                review_replies: true,
+            },
+        });
+        res.json({ data: reviews });
+    } catch (error) {
+        logger.error('Lỗi lấy danh sách đánh giá', { error: error.message });
+        res.status(500).json({ error: 'Lỗi hệ thống' });
+    }
+};
+
 const replyReview = async (req, res) => {
     try {
         const { id } = req.params;
@@ -285,5 +347,5 @@ const replyReview = async (req, res) => {
 module.exports = {
     getOrders, updateOrderStatus, notifyOrder, processRma,
     restock, getInventory, getInventoryMovements,
-    replyReview,
+    getReviews, replyReview,
 };

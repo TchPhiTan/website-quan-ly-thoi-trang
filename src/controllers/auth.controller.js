@@ -9,6 +9,7 @@
 const bcrypt = require('bcrypt');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../lib/prisma');
+const { isTransientDatabaseError } = require('../lib/prisma');
 const logger = require('../config/logger');
 
 // UC-KH01: Đăng ký
@@ -97,6 +98,9 @@ const login = async (req, res) => {
         });
     } catch (error) {
         logger.error('Lỗi đăng nhập', { error: error.message });
+        if (isTransientDatabaseError(error)) {
+            return res.status(503).json({ error: 'Dịch vụ cơ sở dữ liệu đang tạm thời không khả dụng. Vui lòng thử lại sau.' });
+        }
         res.status(500).json({ error: 'Lỗi hệ thống' });
     }
 };

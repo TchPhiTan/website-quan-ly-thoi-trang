@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHead, Badge, Select, Modal, Field, Table, th, td } from "@/components/admin/admin-ui";
 import { useAdmin, stockState, downloadCsv, LOW_STOCK, type Session } from "@/lib/admin-data";
-import { useProducts, useSessions } from "@/services/hooks";
-import { productService, sessionService } from "@/services";
+import { useInventory, useSessions } from "@/services/hooks";
+import { inventoryService, sessionService } from "@/services";
 export const Route = createFileRoute("/admin/inventory-tools")({ head: () => ({ meta: [{ title: "Hỗ trợ quản lý tồn kho — MỘC" }] }), component: InventoryTools });
 type Tab = "low" | "bulk" | "barcode" | "diag";
 const tabs: { value: Tab; label: string }[] = [{ value: "low", label: "Tồn kho thấp" }, { value: "bulk", label: "Điều chỉnh hàng loạt" }, { value: "barcode", label: "Mã vạch / QR" }, { value: "diag", label: "Chẩn đoán tồn kho" }];
@@ -17,7 +17,7 @@ function Barcode({ value }: { value: string }) {
   return <svg viewBox={`0 0 ${x + 4} 70`} className="w-full max-w-md bg-white border"><g fill="black">{bars.map((b, i) => <rect key={i} x={b.x} y={4} width={b.w} height={50} />)}</g><text x={(x + 4) / 2} y={66} fontSize="9" textAnchor="middle">{value}</text></svg>;
 }
 function InventoryTools() {
-  const a = useAdmin(); const products = useProducts(); const sessions = useSessions(); const [tab, setTab] = useState<Tab>("low");
+  const a = useAdmin(); const products = useInventory(); const sessions = useSessions(); const [tab, setTab] = useState<Tab>("low");
   const low = products.filter(p => p.stock <= LOW_STOCK);
   const [edits, setEdits] = useState<Record<string, string>>({}); const [bcId, setBcId] = useState(products[0]?.id ?? "");
   const [qcId, setQcId] = useState(products[0]?.id ?? ""); const [qcVar, setQcVar] = useState(""); const [qcQty, setQcQty] = useState(""); const [qcErr, setQcErr] = useState("");
@@ -26,13 +26,13 @@ function InventoryTools() {
   const productName = (id: string) => products.find(p => p.id === id)?.name ?? id;
   const opened = sessions.find(s => s.id === openId);
 
-  const applyBulk = () => { let n = 0; for (const [id, v] of Object.entries(edits)) { const q = Number(v); if (v !== "" && Number.isInteger(q) && q >= 0) { void productService.setStock(id, q, "Điều chỉnh hàng loạt"); n++; } } setEdits({}); a.notify(n ? `Đã điều chỉnh ${n} sản phẩm` : "Chưa có giá trị hợp lệ để cập nhật"); };
+  const applyBulk = () => { let n = 0; for (const [id, v] of Object.entries(edits)) { const q = Number(v); const product = products.find(item => item.id === id); if (product && v !== "" && Number.isInteger(q) && q >= 0) { void inventoryService.restock(product, q, "Điều chỉnh hàng loạt"); n++; } } setEdits({}); a.notify(n ? `Đã điều chỉnh ${n} sản phẩm` : "Chưa có giá trị hợp lệ để cập nhật"); };
   const exportPO = () => { downloadCsv("PO-nhap-hang.csv", [["Mã SP", "Tên sản phẩm", "Tồn hiện tại", "Số lượng đề xuất đặt"], ...low.map(p => [p.id, p.name, p.stock, Math.max(20 - p.stock, 0)])]); a.notify("Đã xuất file PO"); };
   const diag = products.flatMap(p => { const r: [string, string, string][] = []; if (p.stock <= 0) r.push([p.name, "Hết hàng", "Nhập thêm hoặc chuyển ngừng bán"]); else if (p.stock <= LOW_STOCK) r.push([p.name, `Sắp hết hàng (${p.stock})`, "Xem xét lập PO"]); if (p.status === "Ngừng bán" && p.stock > 0) r.push([p.name, "Còn tồn nhưng đã ngừng bán", "Kiểm tra trạng thái sản phẩm"]); return r; });
   const sessionDiff = sessions.filter(s => !s.applied).flatMap(s => s.lines.filter(l => l.counted !== null && l.counted !== l.expected).map((l): [string, string, string] => [productName(l.productId), `Chênh lệch kiểm kê "${s.name}": hệ thống ${l.expected}, đếm ${l.counted}`, "Áp dụng kết quả kiểm kê"]));
   const issues = [...diag, ...sessionDiff];
 
-  const quick = () => { const q = Number(qcQty); if (!qcId || qcQty === "" || !Number.isInteger(q) || q < 0) { setQcErr("Chọn sản phẩm và nhập số lượng đếm là số nguyên không âm."); return; } setQcErr(""); void a.run(productService.setStock(qcId, q, `Kiểm kê nhanh${qcVar.trim() ? ` (${qcVar.trim()})` : ""}`), "Đã cập nhật nhanh tồn kho"); setQcQty(""); setQcVar(""); };
+  const quick = () => { const q = Number(qcQty); const product = products.find(item => item.id === qcId); if (!product || qcQty === "" || !Number.isInteger(q) || q < 0) { setQcErr("Chọn sản phẩm và nhập số lượng đếm là số nguyên không âm."); return; } setQcErr(""); void a.run(inventoryService.restock(product, q, `Kiểm kê nhanh${qcVar.trim() ? ` (${qcVar.trim()})` : ""}`), "Đã cập nhật nhanh tồn kho"); setQcQty(""); setQcVar(""); };
   const create = (e: FormEvent) => { e.preventDefault(); if (!name.trim()) { setNameErr("Vui lòng nhập tên phiên kiểm kê."); return; } setNameErr("");
     const list = products.filter(p => cond === conditions[1] ? p.stock <= LOW_STOCK : cond === conditions[2] ? p.status === "Đang bán" : true);
     const s: Session = { id: `s${Date.now()}`, name: name.trim(), condition: cond, createdAt: new Date().toISOString().slice(0, 10), lines: list.map(p => ({ productId: p.id, expected: p.stock, counted: null })), applied: false };
@@ -42,7 +42,7 @@ function InventoryTools() {
   const upload = async (s: Session) => { const f = files[s.id]; if (!f) { a.notify("Hãy chọn file CSV trước"); return; }
     const map: Record<string, number> = {}; (await f.text()).replace(/^\uFEFF/, "").split(/\r?\n/).slice(1).forEach(row => { const id = row.split(",")[0]?.trim() ?? ""; const v = row.slice(row.lastIndexOf(",") + 1).trim(); if (id && v !== "" && Number.isInteger(Number(v)) && Number(v) >= 0) map[id] = Number(v); });
     const hit = s.lines.filter(l => map[l.productId] !== undefined).length; patchSession(s.id, x => ({ ...x, lines: x.lines.map(l => ({ ...l, counted: map[l.productId] ?? l.counted })) })); a.notify(hit ? `Đã nạp ${hit} dòng từ CSV` : "File không có dòng hợp lệ"); };
-  const applySession = (s: Session) => { const n = s.lines.filter(l => l.counted !== null).length; if (!n) { a.notify("Phiên chưa có số lượng đếm"); return; } s.lines.forEach(l => { if (l.counted !== null) void productService.setStock(l.productId, l.counted, `Kiểm kê: ${s.name}`); }); patchSession(s.id, x => ({ ...x, applied: true })); a.notify(`Đã áp dụng kết quả kiểm kê (${n} sản phẩm)`); };
+  const applySession = (s: Session) => { const n = s.lines.filter(l => l.counted !== null).length; if (!n) { a.notify("Phiên chưa có số lượng đếm"); return; } s.lines.forEach(l => { const product = products.find(item => item.id === l.productId); if (product && l.counted !== null) void inventoryService.restock(product, l.counted, `Kiểm kê: ${s.name}`); }); patchSession(s.id, x => ({ ...x, applied: true })); a.notify(`Đã áp dụng kết quả kiểm kê (${n} sản phẩm)`); };
 
   return <><PageHead eyebrow="Kho hàng" title="Hỗ trợ quản lý tồn kho" desc="Kiểm kê, điều chỉnh hàng loạt, mã vạch và chẩn đoán." />
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">{tabs.map(t => <Button key={t.value} variant={tab === t.value ? "default" : "outline"} className="h-12" onClick={() => setTab(t.value)}>{t.label}</Button>)}</div>
