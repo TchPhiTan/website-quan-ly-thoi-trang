@@ -311,18 +311,27 @@ const checkout = async (req, res) => {
             let appliedCoupon = null;
             if (coupon_id) {
                 const cleanCouponParam = String(coupon_id).trim();
-                appliedCoupon = await tx.coupons.findFirst({
-                    where: isUuid
-                        ? { OR: [{ coupon_id: cleanCouponParam }, { code: cleanCouponParam }] }
-                        : { code: cleanCouponParam },
-                });
+                const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanCouponParam);
+                if (isValidUuid) {
+                    appliedCoupon = await tx.coupons.findFirst({
+                        where: {
+                            OR: [{ coupon_id: cleanCouponParam }, { code: cleanCouponParam }],
+                        },
+                    });
+                } else {
+                    appliedCoupon = await tx.coupons.findFirst({
+                        where: {
+                            code: cleanCouponParam,
+                        },
+                    });
+                }
 
                 if (!appliedCoupon) {
                     const allActive = await tx.coupons.findMany({
                         where: { status: 'ACTIVE' },
                     });
                     appliedCoupon = allActive.find(
-                        c => c.coupon_id === cleanCouponParam || c.code.trim().toUpperCase() === cleanCouponParam.toUpperCase()
+                        c => (isValidUuid && c.coupon_id === cleanCouponParam) || c.code.trim().toUpperCase() === cleanCouponParam.toUpperCase()
                     );
                 }
 

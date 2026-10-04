@@ -203,7 +203,7 @@ function CartPage() {
         shipping_phone: cleanPhone,
         shipping_city: shippingCity.trim(),
         shipping_line1: shippingLine1.trim(),
-        coupon_id: selectedPromo?.id || null,
+        coupon_id: selectedPromo ? (selectedPromo.code || selectedPromo.id) : null,
       });
 
       const createdOrderId = order.id;
