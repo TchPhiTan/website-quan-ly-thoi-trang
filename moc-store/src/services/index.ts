@@ -94,11 +94,7 @@ export const productService = {
     const targetId = p.apiId || p.id;
     if (authenticatedAdmin || targetId) {
       if (targetId) {
-        try {
-          await request("DELETE", `/admin/products/${encodeURIComponent(targetId)}`);
-        } catch (error) {
-          console.warn("Lỗi khi gọi API xóa sản phẩm:", error);
-        }
+        await request("DELETE", `/admin/products/${encodeURIComponent(targetId)}`);
       }
       writeDb(d => ({ ...d, products: d.products.filter(item => item.id !== p.id && item.apiId !== p.apiId) }));
       return;
