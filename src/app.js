@@ -98,9 +98,17 @@ app.use(session({
     app.use(`${prefix}/admin`,  adminRoutes);
 });
 
-// Health check
+// Health check endpoints (hỗ trợ Railway / Docker / Kubernetes)
+app.get('/', (req, res) => {
+    res.status(200).json({ status: 'ok', service: 'Fashion Shop API', timestamp: new Date().toISOString() });
+});
+
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // 404 handler
