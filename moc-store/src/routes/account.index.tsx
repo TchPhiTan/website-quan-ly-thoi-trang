@@ -47,7 +47,7 @@ function AccountInfo() {
           setProfile(prev => ({
             ...prev,
             ...data,
-            dob: data.dob ? data.dob.slice(0, 10) : prev.dob,
+            dob: data.dob ? data.dob.slice(0, 10) : (prev.dob ?? null),
           }));
         }
       })

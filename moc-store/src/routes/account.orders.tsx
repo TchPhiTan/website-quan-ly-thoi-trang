@@ -4,7 +4,7 @@ import { money, useStore } from "@/lib/store";
 import { useOrders, useProducts } from "@/services/hooks";
 import { orderService } from "@/services";
 import type { Order } from "@/services/types";
-import { Check, Circle, AlertCircle } from "lucide-react";
+import { Check, Circle, AlertCircle, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
@@ -74,7 +74,9 @@ function Orders() {
               <div className="flex flex-wrap justify-between items-center gap-3 border-b pb-4 text-sm">
                 <div>
                   <span className="font-semibold">#{order.id}</span>
-                  <span className="text-muted-foreground ml-3">Đặt ngày {order.date.split("-").reverse().join("/")}</span>
+                  <span className="text-muted-foreground ml-3">
+                    Đặt ngày {order.date ? order.date.split("-").reverse().join("/") : "Mới đây"}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <span className={`font-medium ${cancelled ? "text-destructive" : "text-accent"}`}>

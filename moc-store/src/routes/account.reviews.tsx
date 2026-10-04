@@ -26,7 +26,7 @@ function Reviews() {
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [hoverRatings, setHoverRatings] = useState<Record<string, number>>({});
   const [texts, setTexts] = useState<Record<string, string>>({});
-  const [submitted, setSubmitted] = useState<Record<string, { rating: number; text: string; date: string }>>({});
+  const [submitted, setSubmitted] = useState<Record<string, { rating: number; text: string; date: string; reply?: string }>>({});
   const [error, setError] = useState<Record<string, string>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
 

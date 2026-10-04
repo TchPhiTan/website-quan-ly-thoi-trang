@@ -95,7 +95,7 @@ function Addresses() {
           full_name,
           phone,
           line1,
-          ward: ward || undefined,
+          ...(ward ? { ward } : {}),
           city,
           is_default,
         });
@@ -105,7 +105,7 @@ function Addresses() {
           full_name,
           phone,
           line1,
-          ward: ward || undefined,
+          ...(ward ? { ward } : {}),
           city,
           is_default,
         });
