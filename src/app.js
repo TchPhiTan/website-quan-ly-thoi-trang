@@ -16,6 +16,11 @@ const adminRoutes  = require('./routes/admin.routes');
 
 const app = express();
 
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Cần thiết khi deploy phía sau Reverse Proxy (Railway, Render, Heroku) để nhận diện đúng HTTPS
+app.set('trust proxy', 1);
+
 // ==========================================
 // MIDDLEWARE CORE
 // ==========================================
@@ -23,16 +28,47 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/assets', express.static(path.join(__dirname, '../moc-store/src/assets')));
 
-const allowedOrigins = new Set([
-    process.env.FRONTEND_URL || 'http://localhost:3000',
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-]);
+// Chuẩn hóa danh sách origin cho phép từ FRONTEND_URL (hỗ trợ phân tách bằng dấu phẩy)
+const configuredOrigins = (process.env.FRONTEND_URL || '')
+    .split(',')
+    .map((url) => url.trim().replace(/\/+$/, ''))
+    .filter(Boolean);
+
+const isOriginAllowed = (origin) => {
+    // Cho phép request không có origin (server-to-server, mobile app, curl, healthcheck)
+    if (!origin) return true;
+
+    // Nếu cấu hình wildcard '*' hoặc chưa set FRONTEND_URL ở môi trường dev
+    if (process.env.FRONTEND_URL === '*' || (!isProduction && configuredOrigins.length === 0)) {
+        return true;
+    }
+
+    const cleanOrigin = origin.replace(/\/+$/, '');
+
+    // Cho phép domain cấu hình trong FRONTEND_URL
+    if (configuredOrigins.includes(cleanOrigin)) return true;
+
+    // Tự động cho phép mọi domain Vercel (*.vercel.app)
+    if (/^https:\/\/[a-z0-9-]+(?:\.[a-z0-9-]+)*\.vercel\.app$/i.test(cleanOrigin)) {
+        return true;
+    }
+
+    // Cho phép localhost và 127.0.0.1 ở mọi cổng khi dev/test
+    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(cleanOrigin)) {
+        return true;
+    }
+
+    return false;
+};
 
 app.use(cors({
     origin: (origin, callback) => {
-        if (!origin || allowedOrigins.has(origin)) return callback(null, true);
-        return callback(new Error('Origin không được phép'));
+        if (isOriginAllowed(origin)) {
+            // Trả về origin cụ thể để hỗ trợ credentials: true
+            return callback(null, true);
+        }
+        console.warn(`[CORS] Blocked origin: ${origin}`);
+        return callback(null, false);
     },
     credentials: true,
 }));
@@ -41,8 +77,11 @@ app.use(session({
     secret: process.env.SESSION_SECRET || 'shopdb-default-secret',
     resave: false,
     saveUninitialized: false,
+    proxy: true,
     cookie: {
-        secure: process.env.NODE_ENV === 'production',
+        secure: isProduction,
+        // Khi deploy tách rời Frontend (Vercel) và Backend (Railway), bắt buộc sameSite: 'none'
+        sameSite: isProduction ? 'none' : 'lax',
         httpOnly: true,
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
     },
