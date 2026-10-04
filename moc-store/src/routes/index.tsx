@@ -71,6 +71,17 @@ function Home() {
     setSearch("");
   };
 
+  const [searchFocused, setSearchFocused] = useState(false);
+  const searchSuggestions = search.trim()
+    ? allProducts
+        .filter(
+          p =>
+            p.status === "Đang bán" &&
+            p.name.toLocaleLowerCase("vi").includes(search.trim().toLocaleLowerCase("vi")),
+        )
+        .slice(0, 4)
+    : [];
+
   return (
     <>
       <section className="site-container pt-5">
@@ -115,6 +126,7 @@ function Home() {
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
               placeholder="Tìm kiếm sản phẩm..."
               aria-label="Tìm kiếm sản phẩm"
               className="w-full bg-transparent border-b border-border pl-7 pr-7 py-3 text-sm outline-none focus:border-accent"
@@ -124,11 +136,46 @@ function Home() {
                 variant="ghost"
                 size="icon"
                 className="absolute right-0 top-1/2 -translate-y-1/2 size-7"
-                onClick={() => setSearch("")}
+                onClick={() => {
+                  setSearch("");
+                  setSearchFocused(false);
+                }}
                 aria-label="Xóa tìm kiếm"
               >
                 <X className="size-3" />
               </Button>
+            )}
+
+            {/* Gợi ý tìm kiếm nhanh */}
+            {searchFocused && search.trim().length > 0 && (
+              <>
+                <div className="fixed inset-0 z-20" onClick={() => setSearchFocused(false)} />
+                <div className="absolute left-0 right-0 top-full mt-2 bg-background border border-border shadow-xl z-30 p-2 space-y-1 animate-in fade-in zoom-in-95 duration-100">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1 font-semibold">
+                    Gợi ý sản phẩm ({searchSuggestions.length})
+                  </p>
+                  {searchSuggestions.length > 0 ? (
+                    searchSuggestions.map(item => (
+                      <Link
+                        key={item.id}
+                        to="/products/$productId"
+                        params={{ productId: item.id }}
+                        onClick={() => setSearchFocused(false)}
+                        className="flex items-center gap-3 p-2 hover:bg-secondary transition-colors"
+                      >
+                        <img src={item.image} alt={item.name} className="w-9 h-11 object-cover shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium truncate">{item.name}</p>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{item.category}</p>
+                        </div>
+                        <span className="text-xs font-semibold text-accent shrink-0">{money(item.price)}</span>
+                      </Link>
+                    ))
+                  ) : (
+                    <p className="text-xs text-muted-foreground p-3 text-center">Không tìm thấy sản phẩm phù hợp</p>
+                  )}
+                </div>
+              </>
             )}
           </div>
         </div>

@@ -15,19 +15,31 @@ import { StoreShell } from "@/components/store-shell";
 
 function NotFoundComponent() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Không tìm thấy trang</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Trang bạn tìm không tồn tại hoặc đã được di chuyển.
+    <div className="flex min-h-[75vh] items-center justify-center bg-background px-6 py-20">
+      <div className="max-w-lg text-center">
+        <p className="text-accent text-[11px] uppercase tracking-[0.25em] font-semibold mb-2">
+          MỤC NÀY KHÔNG TÌM THẤY / 404
         </p>
-        <div className="mt-6">
+        <h1 className="editorial-title text-6xl md:text-8xl my-4 text-foreground">
+          Trang không<br /><em>tồn tại.</em>
+        </h1>
+        <p className="mt-4 text-sm text-muted-foreground leading-relaxed max-w-md mx-auto">
+          Liên kết bạn vừa truy cập có thể đã hết hạn, bị thay đổi đường dẫn hoặc sản phẩm tạm thời không còn khả dụng tại MỘC.
+        </p>
+        <div className="mt-8 flex flex-wrap justify-center gap-4">
           <Link
-            to="/" search={{ category: "" }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            to="/"
+            search={{ category: "" }}
+            className="inline-flex items-center justify-center bg-primary text-primary-foreground px-6 py-3.5 text-xs font-semibold uppercase tracking-widest hover:bg-primary/90 transition-colors"
           >
-            Về trang chủ
+            Quay lại trang chủ →
+          </Link>
+          <Link
+            to="/"
+            search={{ category: "Nữ" }}
+            className="inline-flex items-center justify-center border border-border bg-background text-foreground px-6 py-3.5 text-xs font-semibold uppercase tracking-widest hover:bg-secondary transition-colors"
+          >
+            Khám phá bộ sưu tập
           </Link>
         </div>
       </div>
@@ -40,30 +52,34 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-[70vh] items-center justify-center bg-background px-6 py-20">
       <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
+        <p className="text-destructive text-[11px] uppercase tracking-[0.25em] font-semibold mb-2">
+          HỆ THỐNG / GIÁN ĐOẠN
+        </p>
+        <h1 className="editorial-title text-4xl sm:text-5xl font-medium my-3 text-foreground">
           Trang chưa tải được
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Đã có lỗi xảy ra. Bạn có thể thử tải lại hoặc quay về trang chủ.
+        <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+          Đã có gián đoạn trong quá trình xử lý yêu cầu. Bạn có thể thử tải lại hoặc quay về trang chủ.
         </p>
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
+        <div className="mt-7 flex flex-wrap justify-center gap-3">
           <button
             onClick={() => {
               router.invalidate();
               reset();
             }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="inline-flex items-center justify-center bg-primary text-primary-foreground px-5 py-3 text-xs font-semibold uppercase tracking-widest hover:bg-primary/90 transition-colors"
           >
-            Thử lại
+            Thử tải lại
           </button>
-          <a
-            href="/"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+          <Link
+            to="/"
+            search={{ category: "" }}
+            className="inline-flex items-center justify-center border border-border bg-background text-foreground px-5 py-3 text-xs font-semibold uppercase tracking-widest hover:bg-secondary transition-colors"
           >
             Về trang chủ
-          </a>
+          </Link>
         </div>
       </div>
     </div>

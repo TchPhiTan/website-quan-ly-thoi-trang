@@ -33,6 +33,28 @@ function Orders() {
     }
   };
 
+  const handleReorder = async (order: Order) => {
+    try {
+      for (const line of order.lines) {
+        const prod = products.find(p => p.id === line.productId);
+        if (prod) {
+          const firstVariant = prod.variants?.find(v => v.stock > 0) || prod.variants?.[0];
+          await store.add(
+            prod.id,
+            firstVariant?.color || "Mặc định",
+            firstVariant?.size || "M",
+            line.quantity,
+            firstVariant?.id,
+          );
+        }
+      }
+      store.notify("Đã thêm lại các sản phẩm vào giỏ hàng!");
+      store.setCartOpen(true);
+    } catch {
+      store.notify("Không thể thêm một số sản phẩm vào giỏ hàng.");
+    }
+  };
+
   return (
     <>
       <h2 className="text-2xl font-medium mb-2">Lịch sử đơn hàng</h2>
@@ -54,11 +76,11 @@ function Orders() {
                   <span className="font-semibold">#{order.id}</span>
                   <span className="text-muted-foreground ml-3">Đặt ngày {order.date.split("-").reverse().join("/")}</span>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5">
                   <span className={`font-medium ${cancelled ? "text-destructive" : "text-accent"}`}>
                     {order.status === "Chờ duyệt" ? "Chờ xác nhận" : order.status === "Đã duyệt" ? "Đã xác nhận" : order.status === "Đang giao" ? "Đang giao" : order.status === "Hoàn tất" ? "Hoàn tất" : "Đã hủy"}
                   </span>
-                  {canCancel && (
+                  {canCancel ? (
                     <Button
                       variant="outline"
                       size="sm"
@@ -66,6 +88,15 @@ function Orders() {
                       onClick={() => setCancellingOrder(order)}
                     >
                       Hủy đơn
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => handleReorder(order)}
+                    >
+                      <RotateCcw className="size-3 mr-1" /> Mua lại
                     </Button>
                   )}
                 </div>
