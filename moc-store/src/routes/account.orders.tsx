@@ -36,7 +36,7 @@ function Orders() {
   const handleReorder = async (order: Order) => {
     try {
       for (const line of order.lines) {
-        const prod = products.find(p => p.id === line.productId);
+        const prod = products.find(p => p.id === line.productId || p.apiId === line.productId);
         if (prod) {
           const firstVariant = prod.variants?.find(v => v.stock > 0) || prod.variants?.[0];
           await store.add(
@@ -64,7 +64,7 @@ function Orders() {
       )}
       <div className="space-y-6">
         {orders.map(order => {
-          const product = products.find(p => p.id === order.lines[0]?.productId);
+          const product = products.find(p => p.id === order.lines[0]?.productId || p.apiId === order.lines[0]?.productId);
           const step = order.status === "Đã duyệt" ? 1 : order.status === "Đang giao" ? 2 : order.status === "Hoàn tất" ? 3 : 0;
           const cancelled = order.status === "Đã hủy";
           const canCancel = order.status === "Chờ duyệt";
