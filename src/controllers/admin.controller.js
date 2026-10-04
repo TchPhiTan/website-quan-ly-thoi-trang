@@ -159,16 +159,17 @@ const deleteProduct = async (req, res) => {
     try {
         const { id } = req.params;
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-        const product = await db.products.findFirst({
-            where: isUuid ? { OR: [{ id }, { slug: id }] } : { slug: id },
-        });
 
-        if (!product) {
-            return res.status(404).json({ error: 'Không tìm thấy sản phẩm' });
-        }
+        const outcome = await (db.executeWithRetry || (async (fn) => fn()))(async () => {
+            const product = await db.products.findFirst({
+                where: isUuid ? { OR: [{ id }, { slug: id }] } : { slug: id },
+            });
 
-        await db.$transaction(async (tx) => {
-            await tx.products.update({
+            if (!product) {
+                return { status: 404, body: { error: 'Không tìm thấy sản phẩm' } };
+            }
+
+            await db.products.update({
                 where: { id: product.id },
                 data: {
                     deleted: true,
@@ -176,16 +177,19 @@ const deleteProduct = async (req, res) => {
                     slug: `${product.slug.slice(0, 160)}-deleted-${Date.now()}`,
                 },
             });
-            await tx.product_variants.updateMany({
+
+            await db.product_variants.updateMany({
                 where: { product_id: product.id },
                 data: { stock: 0 },
             });
+
+            return { status: 200, body: { message: 'Đã xóa sản phẩm' } };
         });
 
-        res.json({ message: 'Đã xóa sản phẩm' });
+        res.status(outcome.status).json(outcome.body);
     } catch (error) {
         logger.error('Admin: Lỗi xóa sản phẩm', { error: error.message });
-        res.status(500).json({ error: 'Lỗi hệ thống' });
+        res.status(500).json({ error: error.message || 'Lỗi hệ thống' });
     }
 };
 

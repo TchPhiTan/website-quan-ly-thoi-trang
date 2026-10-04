@@ -4,9 +4,10 @@ import { money, useStore } from "@/lib/store";
 import { useOrders, useProducts } from "@/services/hooks";
 import { orderService } from "@/services";
 import type { Order } from "@/services/types";
-import { Check, Circle, AlertCircle, RotateCcw } from "lucide-react";
+import { Check, Circle, AlertCircle, RotateCcw, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { VietQrSandboxModal, type BankingOrderData } from "@/components/vietqr-sandbox-modal";
 
 export const Route = createFileRoute("/account/orders")({ head: () => ({ meta: [{ title: "Lịch sử đơn hàng — MỘC" }, { name: "description", content: "Theo dõi các đơn hàng của bạn tại MỘC." }, { property: "og:title", content: "Lịch sử đơn hàng — MỘC" }, { property: "og:description", content: "Theo dõi các đơn hàng thời trang đã đặt." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary_large_image" }] }), component: Orders });
 
@@ -16,6 +17,7 @@ function Orders() {
   const orders = useOrders(false, refreshToken);
   const products = useProducts();
   const [cancellingOrder, setCancellingOrder] = useState<Order | null>(null);
+  const [bankingOrder, setBankingOrder] = useState<BankingOrderData | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleConfirmCancel = async () => {
@@ -82,6 +84,16 @@ function Orders() {
                   <span className={`font-medium ${cancelled ? "text-destructive" : "text-accent"}`}>
                     {order.status === "Chờ duyệt" ? "Chờ xác nhận" : order.status === "Đã duyệt" ? "Đã xác nhận" : order.status === "Đang giao" ? "Đang giao" : order.status === "Hoàn tất" ? "Hoàn tất" : "Đã hủy"}
                   </span>
+                  {canCancel && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs gap-1 border-accent/40 text-accent hover:bg-accent/10"
+                      onClick={() => setBankingOrder({ id: order.id, amount: order.total })}
+                    >
+                      <QrCode className="size-3.5" /> Quét VietQR Sandbox
+                    </Button>
+                  )}
                   {canCancel ? (
                     <Button
                       variant="outline"
@@ -181,6 +193,13 @@ function Orders() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <VietQrSandboxModal
+        order={bankingOrder}
+        open={!!bankingOrder}
+        onOpenChange={open => !open && setBankingOrder(null)}
+        onPaymentConfirmed={() => setRefreshToken(prev => prev + 1)}
+      />
     </>
   );
 }
