@@ -14,7 +14,35 @@ function ShellContent() {
   const store = useStore(); const products = useProducts(); const [mobileMenu, setMobileMenu] = useState(false); const [showPassword, setShowPassword] = useState(false); const [error, setError] = useState(""); const [loading, setLoading] = useState(false);
   const count = store.cart.reduce((sum, item) => sum + item.quantity, 0);
   const openAuth = () => { store.setAuthMode("login"); store.setAuthOpen(true); };
-  const submitAuth = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); const data = new FormData(event.currentTarget); const email = String(data.get("identifier") || "").trim(); const password = String(data.get("password") || ""); const fullName = String(data.get("name") || "").trim(); const phone = String(data.get("phone") || "").replace(/\s/g, ""); if (!/^\S+@\S+\.\S+$/.test(email)) { setError("Vui lòng nhập email hợp lệ."); return; } if (store.authMode !== "forgot" && password.length < 6) { setError("Mật khẩu cần có ít nhất 6 ký tự."); return; } setError(""); setLoading(true); try { if (store.authMode === "forgot") { store.notify("Tính năng đặt lại mật khẩu chưa được kết nối"); store.setAuthOpen(false); } else { if (store.authMode === "register") await authService.register({ email, password, full_name: fullName, phone }); await authService.login({ email, password }); store.signIn(); } } catch (requestError) { setError((requestError as Error).message); } finally { setLoading(false); } };
+  const submitAuth = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const email = String(data.get("identifier") || "").trim();
+    const password = String(data.get("password") || "");
+    const fullName = String(data.get("name") || "").trim();
+    const phone = String(data.get("phone") || "").replace(/\s/g, "");
+    if (!/^\S+@\S+\.\S+$/.test(email)) { setError("Vui lòng nhập email hợp lệ."); return; }
+    if (store.authMode !== "forgot" && password.length < 6) { setError("Mật khẩu cần có ít nhất 6 ký tự."); return; }
+    if (store.authMode === "register") {
+      if (!fullName) { setError("Vui lòng nhập họ và tên."); return; }
+      if (!phone || !/^0\d{9}$/.test(phone)) { setError("Số điện thoại không hợp lệ (cần 10 chữ số, bắt đầu bằng 0)."); return; }
+    }
+    setError(""); setLoading(true);
+    try {
+      if (store.authMode === "forgot") {
+        store.notify("Tính năng đặt lại mật khẩu chưa được kết nối");
+        store.setAuthOpen(false);
+      } else {
+        if (store.authMode === "register") await authService.register({ email, password, full_name: fullName, phone });
+        await authService.login({ email, password });
+        store.signIn();
+      }
+    } catch (requestError) {
+      setError((requestError as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
   return <>
     <div className="bg-primary text-primary-foreground text-center text-[10px] md:text-xs tracking-wide py-2.5">Miễn phí vận chuyển cho đơn hàng từ 799.000₫ <span className="mx-3 opacity-50">|</span> Khám phá phong cách của riêng bạn</div>
     <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b border-border"><div className="site-container h-[70px] flex items-center justify-between gap-5">

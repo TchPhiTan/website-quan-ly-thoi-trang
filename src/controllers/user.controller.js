@@ -196,6 +196,11 @@ const checkout = async (req, res) => {
     const { payment_method, shipping_full_name, shipping_phone, shipping_city, shipping_line1, coupon_id } = req.body;
     const token_user = req.user.token_user;
 
+    const cleanShippingPhone = shipping_phone ? String(shipping_phone).replace(/\s/g, '') : null;
+    if (cleanShippingPhone && !/^0\d{9}$/.test(cleanShippingPhone)) {
+        return res.status(400).json({ error: 'Số điện thoại nhận hàng không hợp lệ (cần 10 chữ số, bắt đầu bằng 0)' });
+    }
+
     let newOrderId = uuidv4();
     try {
         await db.$transaction(async (tx) => {
@@ -477,11 +482,16 @@ const updateProfile = async (req, res) => {
     try {
         const { full_name, phone, gender, dob, height_cm, weight_kg, avatar } = req.body;
 
+        const cleanPhone = phone !== undefined && phone !== null && phone !== '' ? String(phone).replace(/\s/g, '') : null;
+        if (cleanPhone && !/^0\d{9}$/.test(cleanPhone)) {
+            return res.status(400).json({ error: 'Số điện thoại không hợp lệ (cần 10 chữ số, bắt đầu bằng 0)' });
+        }
+
         await db.users.update({
             where: { token_user: req.user.token_user },
             data: {
                 ...(full_name && { full_name }),
-                ...(phone !== undefined && { phone }),
+                ...(phone !== undefined && { phone: cleanPhone }),
                 ...(gender !== undefined && { gender }),
                 ...(dob !== undefined && { dob: dob ? new Date(dob) : null }),
                 ...(height_cm !== undefined && { height_cm: Number(height_cm) }),
@@ -542,6 +552,11 @@ const createAddress = async (req, res) => {
     try {
         const { full_name, phone, city, district, ward, line1, is_default = false } = req.body;
 
+        const cleanPhone = phone ? String(phone).replace(/\s/g, '') : null;
+        if (cleanPhone && !/^0\d{9}$/.test(cleanPhone)) {
+            return res.status(400).json({ error: 'Số điện thoại không hợp lệ (cần 10 chữ số, bắt đầu bằng 0)' });
+        }
+
         await db.$transaction(async (tx) => {
             if (is_default) {
                 await tx.addresses.updateMany({
@@ -553,7 +568,7 @@ const createAddress = async (req, res) => {
                 data: {
                     id: uuidv4(),
                     token_user: req.user.token_user,
-                    full_name, phone, city, district, ward, line1,
+                    full_name, phone: cleanPhone, city, district, ward, line1,
                     is_default: Boolean(is_default),
                 },
             });
@@ -572,6 +587,11 @@ const updateAddress = async (req, res) => {
         const { id } = req.params;
         const { full_name, phone, city, district, ward, line1, is_default } = req.body;
 
+        const cleanPhone = phone !== undefined && phone !== null && phone !== '' ? String(phone).replace(/\s/g, '') : null;
+        if (cleanPhone && !/^0\d{9}$/.test(cleanPhone)) {
+            return res.status(400).json({ error: 'Số điện thoại không hợp lệ (cần 10 chữ số, bắt đầu bằng 0)' });
+        }
+
         await db.$transaction(async (tx) => {
             if (is_default) {
                 await tx.addresses.updateMany({
@@ -583,7 +603,7 @@ const updateAddress = async (req, res) => {
                 where: { id },
                 data: {
                     ...(full_name && { full_name }),
-                    ...(phone && { phone }),
+                    ...(phone !== undefined && { phone: cleanPhone }),
                     ...(city && { city }),
                     ...(district !== undefined && { district }),
                     ...(ward !== undefined && { ward }),

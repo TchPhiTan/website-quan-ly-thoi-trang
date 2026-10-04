@@ -209,6 +209,11 @@ const guestCheckout = async (req, res) => {
             return res.status(400).json({ error: 'Giỏ hàng trống' });
         }
 
+        const cleanShippingPhone = shipping_phone ? String(shipping_phone).replace(/\s/g, '') : null;
+        if (!cleanShippingPhone || !/^0\d{9}$/.test(cleanShippingPhone)) {
+            return res.status(400).json({ error: 'Số điện thoại nhận hàng không hợp lệ (cần 10 chữ số, bắt đầu bằng 0)' });
+        }
+
         await db.$transaction(async (tx) => {
             const shadowUserToken = uuidv4();
             const role = await tx.roles.findFirst({ where: { name: 'user' } });

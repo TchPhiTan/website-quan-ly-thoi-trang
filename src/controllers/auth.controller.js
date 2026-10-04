@@ -21,6 +21,11 @@ const register = async (req, res) => {
             return res.status(400).json({ error: 'Email, mật khẩu và họ tên là bắt buộc' });
         }
 
+        const cleanPhone = phone ? String(phone).replace(/\s/g, '') : null;
+        if (cleanPhone && !/^0\d{9}$/.test(cleanPhone)) {
+            return res.status(400).json({ error: 'Số điện thoại không hợp lệ (cần 10 chữ số, bắt đầu bằng 0)' });
+        }
+
         const existing = await db.users.findUnique({ where: { email } });
         if (existing) {
             return res.status(409).json({ error: 'Email đã được sử dụng' });
