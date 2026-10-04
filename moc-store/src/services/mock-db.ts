@@ -33,9 +33,11 @@ const orders: Order[] = [
 const SEED: Db = {
   products, orders,
   promos: [
-    { id: "p1", code: "MOC100", title: "Giảm 100.000₫", kind: "Giảm tiền", value: 100000, minOrder: 799000, expires: "2026-11-30", active: true },
-    { id: "p2", code: "FREESHIP", title: "Miễn phí vận chuyển", kind: "Miễn phí vận chuyển", value: 35000, minOrder: 499000, expires: "2026-12-31", active: true },
-    { id: "p3", code: "MOI50", title: "Giảm 50.000₫ cho đơn đầu tiên", kind: "Giảm tiền", value: 50000, minOrder: 399000, expires: "2026-10-31", active: true },
+    { id: "bfa822cd-dd47-47c2-b0bd-e80a6f596a2b", code: "MOC100", title: "Giảm 100.000₫ cho đơn từ 799k", kind: "Giảm tiền", value: 100000, minOrder: 799000, expires: "2026-12-31", active: true },
+    { id: "a1bfcbe7-99cb-49a1-81c9-e07d6ff67060", code: "FREESHIP", title: "Miễn phí vận chuyển cho đơn từ 499k", kind: "Miễn phí vận chuyển", value: 35000, minOrder: 499000, expires: "2026-12-31", active: true },
+    { id: "aada96ef-3a4b-428c-8721-88ce69c7f6d6", code: "MOI50", title: "Giảm 50.000₫ cho đơn đầu tiên từ 399k", kind: "Giảm tiền", value: 50000, minOrder: 399000, expires: "2026-12-31", active: true },
+    { id: "5b9c3c44-9bf4-4b86-a292-736b43401058", code: "CHAOBAN", title: "Mã giảm giá chào bạn mới", kind: "Giảm tiền", value: 30000, minOrder: 0, expires: "2026-12-31", active: true },
+    { id: "38501454-98c1-4cc5-85ca-b2d249544bbf", code: "MOC20", title: "Giảm 20.000₫ đơn từ 200k", kind: "Giảm tiền", value: 20000, minOrder: 200000, expires: "2026-12-31", active: true },
   ],
   reviews: [
     { id: "r1", productName: "Đầm midi Lina", customer: "Lê Thu Hà", rating: 5, text: "Chất vải nhẹ, mặc rất thoải mái, đúng size như mô tả.", date: "2026-09-20", reply: "" },
@@ -63,7 +65,16 @@ const listeners = new Set<() => void>();
 let bound = false;
 const load = (): Db => {
   if (cache) return cache;
-  try { const raw = localStorage.getItem(KEY); cache = raw ? { ...SEED, ...(JSON.parse(raw) as Partial<Db>) } : SEED; } catch { cache = SEED; }
+  try {
+    const raw = localStorage.getItem(KEY);
+    cache = raw ? { ...SEED, ...(JSON.parse(raw) as Partial<Db>) } : SEED;
+    if (cache.promos && cache.promos.some(p => p.id.startsWith("p"))) {
+      cache.promos = SEED.promos;
+      localStorage.setItem(KEY, JSON.stringify(cache));
+    }
+  } catch {
+    cache = SEED;
+  }
   return cache;
 };
 export const getSeed = (): Db => SEED;

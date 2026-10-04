@@ -299,6 +299,25 @@ export const orderService = {
 };
 
 export const discountOf = (promo: Promo, subtotal: number) => promo.kind === "Giảm tiền" ? Math.min(promo.value, subtotal) : promo.kind === "Giảm %" ? Math.floor((subtotal * promo.value) / 100) : 0;
+
+export const KNOWN_COUPONS_MAP: Record<string, string> = {
+  MOC100: "bfa822cd-dd47-47c2-b0bd-e80a6f596a2b",
+  FREESHIP: "a1bfcbe7-99cb-49a1-81c9-e07d6ff67060",
+  MOI50: "aada96ef-3a4b-428c-8721-88ce69c7f6d6",
+  CHAOBAN: "5b9c3c44-9bf4-4b86-a292-736b43401058",
+  MOC20: "38501454-98c1-4cc5-85ca-b2d249544bbf",
+};
+
+export const resolveCouponUuid = (promo: Promo | null | undefined): string | null => {
+  if (!promo) return null;
+  const isUuid = (val?: string) => Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
+  if (isUuid(promo.id)) return promo.id;
+  const upperCode = (promo.code || "").trim().toUpperCase();
+  if (KNOWN_COUPONS_MAP[upperCode]) return KNOWN_COUPONS_MAP[upperCode];
+  if (isUuid(promo.code)) return promo.code;
+  return null;
+};
+
 type ApiCoupon = { coupon_id: string; code?: string; title?: string; type?: string; discount_value?: number | string; min_order_value?: number | string; end_date?: string; status?: string };
 const fromApiCoupon = (coupon: ApiCoupon): Promo => ({
   id: coupon.coupon_id,

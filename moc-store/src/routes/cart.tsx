@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { cn } from "@/lib/utils";
 import { money, useStore } from "@/lib/store";
 import { useProducts, usePromos, useAddresses } from "@/services/hooks";
-import { promoService, orderService, profileService, discountOf } from "@/services";
+import { promoService, orderService, profileService, discountOf, resolveCouponUuid } from "@/services";
 import type { Promo } from "@/services/types";
 
 type CartSearch = {
@@ -203,7 +203,7 @@ function CartPage() {
         shipping_phone: cleanPhone,
         shipping_city: shippingCity.trim(),
         shipping_line1: shippingLine1.trim(),
-        coupon_id: selectedPromo ? (selectedPromo.code || selectedPromo.id) : null,
+        coupon_id: resolveCouponUuid(selectedPromo),
       });
 
       const createdOrderId = order.id;
