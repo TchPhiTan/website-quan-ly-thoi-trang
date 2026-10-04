@@ -86,6 +86,7 @@ function Orders() {
             <th className={th}>Khách hàng</th>
             <th className={th}>Ngày đặt</th>
             <th className={th}>Tổng tiền</th>
+            <th className={th}>Thanh toán</th>
             <th className={th}>Trạng thái</th>
             <th className={th}>Thao tác</th>
           </tr>
@@ -107,6 +108,23 @@ function Orders() {
                 <span className="font-semibold">{money(o.total)}</span>
                 {Boolean(o.discountTotal && o.discountTotal > 0) && (
                   <p className="text-[11px] text-accent">Voucher: -{money(o.discountTotal || 0)}</p>
+                )}
+              </td>
+              <td className={td}>
+                {o.paymentMethod === "BANKING" ? (
+                  o.status === "Đã hủy" ? (
+                    <Badge tone="amber">VietQR • Chờ hoàn tiền</Badge>
+                  ) : (
+                    <Badge tone="emerald">VietQR • Đã thanh toán</Badge>
+                  )
+                ) : (
+                  o.status === "Hoàn tất" ? (
+                    <Badge tone="emerald">COD • Đã thu tiền</Badge>
+                  ) : o.status === "Đã hủy" ? (
+                    <Badge tone="neutral">COD • Đã hủy</Badge>
+                  ) : (
+                    <Badge tone="amber">COD • Thu khi nhận</Badge>
+                  )
                 )}
               </td>
               <td className={td}>
@@ -242,9 +260,39 @@ function Orders() {
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Phương thức:</span>
-                <span>{view.paymentMethod === "BANKING" ? "Chuyển khoản ngân hàng" : "Thanh toán khi nhận hàng (COD)"}</span>
+                <span className="font-medium text-foreground">{view.paymentMethod === "BANKING" ? "Chuyển khoản (VietQR)" : "Thanh toán khi nhận hàng (COD)"}</span>
+              </div>
+              <div className="flex justify-between items-center text-muted-foreground">
+                <span>Trạng thái thanh toán:</span>
+                {view.paymentMethod === "BANKING" ? (
+                  view.status === "Đã hủy" ? (
+                    <Badge tone="amber">VietQR • Chờ kế toán hoàn tiền</Badge>
+                  ) : (
+                    <Badge tone="emerald">VietQR • Đã thanh toán</Badge>
+                  )
+                ) : (
+                  view.status === "Hoàn tất" ? (
+                    <Badge tone="emerald">COD • Đã thu tiền</Badge>
+                  ) : view.status === "Đã hủy" ? (
+                    <Badge tone="neutral">COD • Đã hủy</Badge>
+                  ) : (
+                    <Badge tone="amber">COD • Thu khi nhận</Badge>
+                  )
+                )}
               </div>
             </div>
+
+            {/* Cảnh báo hoàn tiền đối với đơn VietQR đã hủy cho Admin */}
+            {view.paymentMethod === "BANKING" && view.status === "Đã hủy" && (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-xs text-amber-950 dark:text-amber-200 space-y-1">
+                <p className="font-semibold flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
+                  <AlertCircle className="size-4" /> Lưu ý nghiệp vụ Hoàn tiền VietQR:
+                </p>
+                <p className="leading-relaxed">
+                  Đơn hàng này thanh toán qua Chuyển khoản (VietQR) và đã bị hủy. Tồn kho & voucher đã được hoàn tự động. Bộ phận kế toán cần kiểm tra sao kê ngân hàng và thực hiện chuyển khoản hoàn tiền <strong>{money(view.total)}</strong> lại cho khách hàng theo quy định (24h - 48h).
+                </p>
+              </div>
+            )}
 
             <div className="flex justify-between items-center text-base font-semibold pt-1 border-t">
               <span>Tổng thanh toán:</span>

@@ -4,7 +4,7 @@ import { money, useStore } from "@/lib/store";
 import { useOrders, useProducts } from "@/services/hooks";
 import { orderService } from "@/services";
 import type { Order } from "@/services/types";
-import { Check, Circle, AlertCircle, RotateCcw, QrCode } from "lucide-react";
+import { Check, Circle, AlertCircle, RotateCcw, QrCode, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { VietQrSandboxModal, type BankingOrderData } from "@/components/vietqr-sandbox-modal";
@@ -80,10 +80,38 @@ function Orders() {
                     Đặt ngày {order.date ? order.date.split("-").reverse().join("/") : "Mới đây"}
                   </span>
                 </div>
-                <div className="flex items-center gap-2.5">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className={`font-medium ${cancelled ? "text-destructive" : "text-accent"}`}>
                     {order.status === "Chờ duyệt" ? "Chờ xác nhận" : order.status === "Đã duyệt" ? "Đã xác nhận" : order.status === "Đang giao" ? "Đang giao" : order.status === "Hoàn tất" ? "Hoàn tất" : "Đã hủy"}
                   </span>
+
+                  {/* Trạng thái thanh toán */}
+                  {order.paymentMethod === "BANKING" ? (
+                    cancelled ? (
+                      <span className="inline-flex items-center gap-1 font-medium text-sky-700 dark:text-sky-300 bg-sky-500/10 px-2 py-0.5 rounded text-[11px] border border-sky-500/20">
+                        <RefreshCw className="size-3" /> Đang chờ hoàn tiền
+                      </span>
+                    ) : (
+                      <span className="font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded text-[11px] border border-emerald-500/20">
+                        ✓ Đã thanh toán (VietQR)
+                      </span>
+                    )
+                  ) : (
+                    order.status === "Hoàn tất" ? (
+                      <span className="font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded text-[11px] border border-emerald-500/20">
+                        ✓ Đã thanh toán (COD)
+                      </span>
+                    ) : cancelled ? (
+                      <span className="font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded text-[11px] border">
+                        Chưa thanh toán (Đã hủy)
+                      </span>
+                    ) : (
+                      <span className="font-medium text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded text-[11px] border border-amber-500/20">
+                        Chưa thanh toán (Thu COD khi nhận)
+                      </span>
+                    )
+                  )}
+
                   {canCancel && order.paymentMethod === "BANKING" && (
                     <Button
                       variant="outline"
@@ -115,6 +143,19 @@ function Orders() {
                   )}
                 </div>
               </div>
+
+              {/* Thông báo tiến trình hoàn tiền cho đơn Chuyển khoản (VietQR) đã hủy */}
+              {cancelled && order.paymentMethod === "BANKING" && (
+                <div className="mt-3 p-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-xs text-sky-900 dark:text-sky-200 flex items-start gap-2.5">
+                  <RefreshCw className="size-4 shrink-0 mt-0.5 text-sky-600 dark:text-sky-400" />
+                  <div className="space-y-1">
+                    <p className="font-semibold text-sky-800 dark:text-sky-300">Đơn hàng đã hủy — Đang chờ hoàn tiền {money(order.total)}</p>
+                    <p className="text-muted-foreground dark:text-sky-300/80 leading-relaxed">
+                      Hệ thống đã tự động hoàn trả số lượng sản phẩm vào kho và khôi phục mã giảm giá. Bộ phận CSKH & Kế toán sẽ liên hệ xác nhận và thực hiện hoàn tiền 100% về tài khoản ngân hàng của bạn trong vòng <strong>24h - 48h làm việc</strong>.
+                    </p>
+                  </div>
+                </div>
+              )}
               <div className="flex gap-4 py-5">
                 {product && (
                   <Link to="/products/$productId" params={{ productId: product.id }}>
@@ -181,8 +222,25 @@ function Orders() {
             <AlertCircle className="size-5" />
             <DialogTitle className="text-lg">Xác nhận hủy đơn hàng</DialogTitle>
           </div>
-          <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
-            Bạn có chắc chắn muốn hủy đơn hàng #{cancellingOrder?.id}? Hệ thống sẽ tự động hoàn lại số lượng sản phẩm vào kho hàng và khôi phục mã giảm giá (nếu có).
+          <DialogDescription className="text-sm leading-relaxed text-muted-foreground space-y-3">
+            <span>
+              Bạn có chắc chắn muốn hủy đơn hàng <strong className="text-foreground">#{cancellingOrder?.id}</strong>?
+            </span>
+            {cancellingOrder?.paymentMethod === "BANKING" ? (
+              <span className="block p-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-xs text-sky-900 dark:text-sky-200 space-y-1.5 text-left">
+                <span className="font-semibold flex items-center gap-1.5 text-sky-700 dark:text-sky-300">
+                  <RefreshCw className="size-3.5" /> Quy trình hoàn tiền đơn hàng Chuyển khoản (VietQR):
+                </span>
+                <span className="block text-muted-foreground dark:text-sky-300/80">
+                  • Kho hàng & Voucher: Tự động hoàn trả tồn kho và khôi phục mã giảm giá ngay lập tức.<br />
+                  • Hoàn tiền: Bộ phận CSKH & Kế toán sẽ liên hệ đối soát và <strong>hoàn trả 100% số tiền ({cancellingOrder ? money(cancellingOrder.total) : ""})</strong> về số tài khoản ngân hàng của bạn trong vòng <strong>24h - 48h làm việc</strong>.
+                </span>
+              </span>
+            ) : (
+              <span className="block p-3 rounded-lg bg-muted text-xs text-muted-foreground text-left">
+                <strong className="text-foreground">Đơn hàng thanh toán khi nhận hàng (COD):</strong> Chưa phát sinh tiền mặt. Tồn kho và mã voucher sẽ được hoàn trả tự động ngay lập tức.
+              </span>
+            )}
           </DialogDescription>
           <div className="flex justify-end gap-3 mt-6">
             <Button
