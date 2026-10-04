@@ -24,3 +24,4 @@ Thumbs.db
 
 # Legacy / backup
 _legacy/
+.vercel
