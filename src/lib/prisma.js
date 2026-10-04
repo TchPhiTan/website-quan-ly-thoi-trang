@@ -7,13 +7,13 @@ if (databaseUrl.includes('-pooler') && !databaseUrl.includes('pgbouncer=true')) 
     process.env.DATABASE_URL = databaseUrl;
 }
 
-const transientCodes = new Set(['P1001', 'P1002', 'P1008', 'P1017', 'P2024']);
+const transientCodes = new Set(['P1001', 'P1002', 'P1008', 'P1017', 'P2024', 'P2028']);
 const isTransientDatabaseError = (error) => {
     if (!error) return false;
     const msg = String(error.message || error);
     const code = error.code || error.cause?.code || '';
     return transientCodes.has(code)
-        || /Can't reach database|timed out|connection|terminating connection|57P01|closed the connection|broken pipe|Connection reset|ProcessInterrupts/i.test(msg);
+        || /Can't reach database|timed out|connection|terminating connection|57P01|closed the connection|broken pipe|Connection reset|ProcessInterrupts|Transaction not found|Transaction ID is invalid|before disconnecting/i.test(msg);
 };
 
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));

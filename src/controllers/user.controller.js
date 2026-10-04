@@ -281,168 +281,181 @@ const checkout = async (req, res) => {
 
     let newOrderId = uuidv4();
     try {
-        await db.$transaction(async (tx) => {
-            const cart = await tx.cart.findUnique({
-                where: { token_user },
-                include: { cart_items: true },
-            });
-            if (!cart || cart.cart_items.length === 0) throw new Error('Giỏ hàng trống');
-
-            let subtotal = 0;
-            let discount_total = 0;
-
-            for (const item of cart.cart_items) {
-                const variant = await tx.product_variants.findUnique({
-                    where: { id: item.variant_id },
-                    include: { products: true },
-                });
-                if (!variant || variant.stock < item.quantity) {
-                    const prodName = variant?.products?.title || 'Sản phẩm';
-                    throw new Error(`Sản phẩm "${prodName}" không đủ tồn kho (còn ${variant ? variant.stock : 0})`);
-                }
-                const realProduct = variant.products;
-                const discountPercent = Number(realProduct?.discount) || 0;
-                const basePrice = Number(realProduct?.price) || 0;
-                const unitPrice = discountPercent > 0 ? Math.round(basePrice * (1 - discountPercent / 100)) : basePrice;
-                item.price_unit = unitPrice;
-                subtotal += unitPrice * item.quantity;
-            }
-
-            let appliedCoupon = null;
-            if (coupon_id) {
-                const cleanCouponParam = String(coupon_id).trim();
-                const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanCouponParam);
-                if (isValidUuid) {
-                    appliedCoupon = await tx.coupons.findFirst({
-                        where: {
-                            OR: [{ coupon_id: cleanCouponParam }, { code: cleanCouponParam }],
-                        },
-                    });
-                } else {
-                    appliedCoupon = await tx.coupons.findFirst({
-                        where: {
-                            code: cleanCouponParam,
-                        },
-                    });
-                }
-
-                if (!appliedCoupon) {
-                    const allActive = await tx.coupons.findMany({
-                        where: { status: 'ACTIVE' },
-                    });
-                    appliedCoupon = allActive.find(
-                        c => (isValidUuid && c.coupon_id === cleanCouponParam) || c.code.trim().toUpperCase() === cleanCouponParam.toUpperCase()
-                    );
-                }
-
-                const now = new Date();
-                if (
-                    !appliedCoupon ||
-                    appliedCoupon.status !== 'ACTIVE' ||
-                    (appliedCoupon.start_date && appliedCoupon.start_date > now) ||
-                    (appliedCoupon.end_date && appliedCoupon.end_date < now) ||
-                    (appliedCoupon.usage_limit && appliedCoupon.used_count >= appliedCoupon.usage_limit) ||
-                    Number(subtotal) < Number(appliedCoupon.min_order_value)
-                ) {
-                    throw new Error('Mã giảm giá không hợp lệ hoặc đã hết hạn');
-                }
-
-                // Ràng buộc nghiệp vụ: Mỗi khách hàng chỉ được dùng mã ưu đãi 1 lần
-                const user = await tx.users.findUnique({ where: { token_user } });
-                if (user) {
-                    const usedBefore = await tx.coupon_usages.findFirst({
-                        where: {
-                            coupon_id: appliedCoupon.coupon_id,
-                            user_id: user.id,
-                        },
-                    });
-                    if (usedBefore) {
-                        throw new Error(`Mã giảm giá ${appliedCoupon.code} chỉ được áp dụng 1 lần cho mỗi khách hàng.`);
-                    }
-                }
-
-                discount_total =
-                    appliedCoupon.type === 'AMOUNT'
-                        ? Number(appliedCoupon.discount_value)
-                        : (subtotal * Number(appliedCoupon.discount_value)) / 100;
-                if (appliedCoupon.max_discount && discount_total > Number(appliedCoupon.max_discount)) {
-                    discount_total = Number(appliedCoupon.max_discount);
-                }
-                await tx.coupons.update({
-                    where: { coupon_id: appliedCoupon.coupon_id },
-                    data: { used_count: { increment: 1 } },
-                });
-            }
-
-            await tx.orders.create({
-                data: {
-                    id: newOrderId,
-                    token_user,
-                    payment_method,
-                    coupon_id: appliedCoupon ? appliedCoupon.coupon_id : null,
-                    subtotal,
-                    discount_total,
-                    shipping_fee: 0,
-                    shipping_full_name,
-                    shipping_phone,
-                    shipping_line1,
-                    shipping_city,
-                    status: 'pending',
-                },
-            });
-
-            if (appliedCoupon) {
-                const user = await tx.users.findUnique({ where: { token_user } });
-                await tx.coupon_usages.create({
-                    data: {
-                        usage_id: uuidv4(),
-                        coupon_id: appliedCoupon.coupon_id,
-                        order_id: newOrderId,
-                        user_id: user.id,
-                    },
-                });
-            }
-
-            for (const item of cart.cart_items) {
-                const orderItemId = uuidv4();
-                await tx.order_items.create({
-                    data: {
-                        id: orderItemId,
-                        order_id: newOrderId,
-                        product_id: item.product_id,
-                        variant_id: item.variant_id,
-                        price: item.price_unit,
-                        quantity: item.quantity,
-                        size: item.size || '',
-                        color: item.color || '',
-                    },
-                });
-
-                const updated = await tx.product_variants.updateMany({
-                    where: { id: item.variant_id, stock: { gte: item.quantity } },
-                    data: { stock: { decrement: item.quantity } },
-                });
-                if (updated.count === 0) throw new Error(`Sản phẩm không đủ tồn kho`);
-
-                await tx.inventory_movements.create({
-                    data: {
-                        id: uuidv4(),
-                        product_id: item.product_id,
-                        variant_id: item.variant_id,
-                        order_item_id: orderItemId,
-                        delta: -item.quantity,
-                        reason: 'sales',
-                        ref_order_id: newOrderId,
-                    },
-                });
-            }
-
-            await tx.cart_items.deleteMany({ where: { cart_id: cart.id } });
-            await tx.cart.update({
-                where: { id: cart.id },
-                data: { coupon_id: null, grand_total: 0 },
-            });
+        const cart = await db.cart.findUnique({
+            where: { token_user },
+            include: { cart_items: true },
         });
+        if (!cart || cart.cart_items.length === 0) {
+            return res.status(400).json({ error: 'Giỏ hàng trống' });
+        }
+
+        const variantIds = cart.cart_items.map(item => item.variant_id);
+        const variants = await db.product_variants.findMany({
+            where: { id: { in: variantIds } },
+            include: { products: true },
+        });
+        const variantMap = new Map(variants.map(v => [v.id, v]));
+
+        let subtotal = 0;
+        let discount_total = 0;
+
+        for (const item of cart.cart_items) {
+            const variant = variantMap.get(item.variant_id);
+            if (!variant || variant.stock < item.quantity) {
+                const prodName = variant?.products?.title || 'Sản phẩm';
+                return res.status(400).json({ error: `Sản phẩm "${prodName}" không đủ tồn kho (còn ${variant ? variant.stock : 0})` });
+            }
+            const realProduct = variant.products;
+            const discountPercent = Number(realProduct?.discount) || 0;
+            const basePrice = Number(realProduct?.price) || 0;
+            const unitPrice = discountPercent > 0 ? Math.round(basePrice * (1 - discountPercent / 100)) : basePrice;
+            item.price_unit = unitPrice;
+            subtotal += unitPrice * item.quantity;
+        }
+
+        let appliedCoupon = null;
+        let userRecord = null;
+        if (coupon_id) {
+            const cleanCouponParam = String(coupon_id).trim();
+            const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanCouponParam);
+            if (isValidUuid) {
+                appliedCoupon = await db.coupons.findFirst({
+                    where: {
+                        OR: [{ coupon_id: cleanCouponParam }, { code: cleanCouponParam }],
+                    },
+                });
+            } else {
+                appliedCoupon = await db.coupons.findFirst({
+                    where: { code: cleanCouponParam },
+                });
+            }
+
+            if (!appliedCoupon) {
+                const allActive = await db.coupons.findMany({
+                    where: { status: 'ACTIVE' },
+                });
+                appliedCoupon = allActive.find(
+                    c => (isValidUuid && c.coupon_id === cleanCouponParam) || c.code.trim().toUpperCase() === cleanCouponParam.toUpperCase()
+                );
+            }
+
+            const now = new Date();
+            if (
+                !appliedCoupon ||
+                appliedCoupon.status !== 'ACTIVE' ||
+                (appliedCoupon.start_date && appliedCoupon.start_date > now) ||
+                (appliedCoupon.end_date && appliedCoupon.end_date < now) ||
+                (appliedCoupon.usage_limit && appliedCoupon.used_count >= appliedCoupon.usage_limit) ||
+                Number(subtotal) < Number(appliedCoupon.min_order_value)
+            ) {
+                return res.status(400).json({ error: 'Mã giảm giá không hợp lệ hoặc đã hết hạn' });
+            }
+
+            // Ràng buộc nghiệp vụ: Mỗi khách hàng chỉ được dùng mã ưu đãi 1 lần
+            userRecord = await db.users.findUnique({ where: { token_user } });
+            if (userRecord) {
+                const usedBefore = await db.coupon_usages.findFirst({
+                    where: {
+                        coupon_id: appliedCoupon.coupon_id,
+                        user_id: userRecord.id,
+                    },
+                });
+                if (usedBefore) {
+                    return res.status(400).json({ error: `Mã giảm giá ${appliedCoupon.code} chỉ được áp dụng 1 lần cho mỗi khách hàng.` });
+                }
+            }
+
+            discount_total =
+                appliedCoupon.type === 'AMOUNT'
+                    ? Number(appliedCoupon.discount_value)
+                    : (subtotal * Number(appliedCoupon.discount_value)) / 100;
+            if (appliedCoupon.max_discount && discount_total > Number(appliedCoupon.max_discount)) {
+                discount_total = Number(appliedCoupon.max_discount);
+            }
+        }
+
+        await db.$transaction(
+            async (tx) => {
+                if (appliedCoupon) {
+                    await tx.coupons.update({
+                        where: { coupon_id: appliedCoupon.coupon_id },
+                        data: { used_count: { increment: 1 } },
+                    });
+                }
+
+                await tx.orders.create({
+                    data: {
+                        id: newOrderId,
+                        token_user,
+                        payment_method,
+                        coupon_id: appliedCoupon ? appliedCoupon.coupon_id : null,
+                        subtotal,
+                        discount_total,
+                        shipping_fee: 0,
+                        shipping_full_name,
+                        shipping_phone,
+                        shipping_line1,
+                        shipping_city,
+                        status: 'pending',
+                    },
+                });
+
+                if (appliedCoupon && userRecord) {
+                    await tx.coupon_usages.create({
+                        data: {
+                            usage_id: uuidv4(),
+                            coupon_id: appliedCoupon.coupon_id,
+                            order_id: newOrderId,
+                            user_id: userRecord.id,
+                        },
+                    });
+                }
+
+                for (const item of cart.cart_items) {
+                    const orderItemId = uuidv4();
+                    await tx.order_items.create({
+                        data: {
+                            id: orderItemId,
+                            order_id: newOrderId,
+                            product_id: item.product_id,
+                            variant_id: item.variant_id,
+                            price: item.price_unit,
+                            quantity: item.quantity,
+                            size: item.size || '',
+                            color: item.color || '',
+                        },
+                    });
+
+                    const updated = await tx.product_variants.updateMany({
+                        where: { id: item.variant_id, stock: { gte: item.quantity } },
+                        data: { stock: { decrement: item.quantity } },
+                    });
+                    if (updated.count === 0) throw new Error('Sản phẩm không đủ tồn kho');
+
+                    await tx.inventory_movements.create({
+                        data: {
+                            id: uuidv4(),
+                            product_id: item.product_id,
+                            variant_id: item.variant_id,
+                            order_item_id: orderItemId,
+                            delta: -item.quantity,
+                            reason: 'sales',
+                            ref_order_id: newOrderId,
+                        },
+                    });
+                }
+
+                await tx.cart_items.deleteMany({ where: { cart_id: cart.id } });
+                await tx.cart.update({
+                    where: { id: cart.id },
+                    data: { coupon_id: null, grand_total: 0 },
+                });
+            },
+            {
+                maxWait: 15000,
+                timeout: 30000,
+            }
+        );
 
         res.status(201).json({ message: 'Đặt hàng thành công', order_id: newOrderId });
     } catch (error) {
@@ -581,7 +594,7 @@ const cancelOrder = async (req, res) => {
                     where: { order_id: id },
                 });
             }
-        });
+        }, { maxWait: 10000, timeout: 20000 });
 
         res.json({ message: 'Đã hủy đơn hàng thành công, tồn kho và voucher đã được hoàn trả.' });
     } catch (error) {
@@ -707,7 +720,7 @@ const createAddress = async (req, res) => {
                     is_default: Boolean(is_default),
                 },
             });
-        });
+        }, { maxWait: 10000, timeout: 20000 });
 
         res.status(201).json({ message: 'Đã thêm địa chỉ mới' });
     } catch (error) {
@@ -746,7 +759,7 @@ const updateAddress = async (req, res) => {
                     ...(is_default !== undefined && { is_default: Boolean(is_default) }),
                 },
             });
-        });
+        }, { maxWait: 10000, timeout: 20000 });
 
         res.json({ message: 'Đã cập nhật địa chỉ' });
     } catch (error) {
@@ -817,7 +830,7 @@ const createReview = async (req, res) => {
                 where: { id: orderItem.product_id },
                 data: { rating_avg: avg, rating_count: reviews.length },
             });
-        });
+        }, { maxWait: 10000, timeout: 20000 });
 
         res.status(201).json({ message: 'Đánh giá đã được gửi' });
     } catch (error) {
