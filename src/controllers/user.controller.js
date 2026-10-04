@@ -162,28 +162,49 @@ const removeCartItem = async (req, res) => {
 const applyCoupon = async (req, res) => {
     try {
         const { code } = req.body;
+        const normalizedCode = String(code || '').trim();
+        if (!normalizedCode) {
+            return res.status(400).json({ error: 'Vui lòng nhập mã giảm giá' });
+        }
         const now = new Date();
 
-        const coupon = await db.coupons.findUnique({ where: { code } });
+        const coupon = await db.coupons.findFirst({
+            where: {
+                code: { equals: normalizedCode, mode: 'insensitive' },
+            },
+        });
+
         if (
             !coupon ||
             coupon.status !== 'ACTIVE' ||
-            coupon.start_date > now ||
-            coupon.end_date < now ||
+            (coupon.start_date && coupon.start_date > now) ||
+            (coupon.end_date && coupon.end_date < now) ||
             (coupon.usage_limit && coupon.used_count >= coupon.usage_limit)
         ) {
             return res.status(400).json({ error: 'Mã giảm giá không hợp lệ hoặc đã hết hạn' });
         }
 
-        const cart = await db.cart.findUnique({
+        let cart = await db.cart.findUnique({
             where: { token_user: req.user.token_user },
             include: { cart_items: true },
         });
-        if (!cart) return res.status(404).json({ error: 'Giỏ hàng không tồn tại' });
-        const subtotal = cart.cart_items.reduce((total, item) => total + Number(item.price_unit) * item.quantity, 0);
-        if (subtotal < Number(coupon.min_order_value)) {
-            return res.status(400).json({ error: `Đơn hàng cần từ ${Number(coupon.min_order_value).toLocaleString('vi-VN')}₫ để dùng mã này.` });
+        if (!cart) {
+            cart = await db.cart.create({
+                data: { id: uuidv4(), token_user: req.user.token_user },
+                include: { cart_items: true },
+            });
         }
+
+        const cartSubtotal = cart.cart_items.reduce((total, item) => total + Number(item.price_unit) * item.quantity, 0);
+        const clientSubtotal = Number(req.body.subtotal) || 0;
+        const subtotal = Math.max(cartSubtotal, clientSubtotal);
+
+        if (subtotal < Number(coupon.min_order_value)) {
+            return res.status(400).json({
+                error: `Đơn hàng cần từ ${Number(coupon.min_order_value).toLocaleString('vi-VN')}₫ để dùng mã này.`,
+            });
+        }
+
         await db.cart.update({
             where: { id: cart.id },
             data: { coupon_id: coupon.coupon_id },
@@ -263,28 +284,36 @@ const checkout = async (req, res) => {
                 subtotal += unitPrice * item.quantity;
             }
 
+            let appliedCoupon = null;
             if (coupon_id) {
+                const cleanCouponParam = String(coupon_id).trim();
+                const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanCouponParam);
+                appliedCoupon = await tx.coupons.findFirst({
+                    where: isUuid
+                        ? { OR: [{ coupon_id: cleanCouponParam }, { code: { equals: cleanCouponParam, mode: 'insensitive' } }] }
+                        : { code: { equals: cleanCouponParam, mode: 'insensitive' } },
+                });
+
                 const now = new Date();
-                const coupon = await tx.coupons.findUnique({ where: { coupon_id } });
                 if (
-                    !coupon ||
-                    coupon.status !== 'ACTIVE' ||
-                    (coupon.start_date && coupon.start_date > now) ||
-                    (coupon.end_date && coupon.end_date < now) ||
-                    (coupon.usage_limit && coupon.used_count >= coupon.usage_limit) ||
-                    Number(subtotal) < Number(coupon.min_order_value)
+                    !appliedCoupon ||
+                    appliedCoupon.status !== 'ACTIVE' ||
+                    (appliedCoupon.start_date && appliedCoupon.start_date > now) ||
+                    (appliedCoupon.end_date && appliedCoupon.end_date < now) ||
+                    (appliedCoupon.usage_limit && appliedCoupon.used_count >= appliedCoupon.usage_limit) ||
+                    Number(subtotal) < Number(appliedCoupon.min_order_value)
                 ) {
                     throw new Error('Mã giảm giá không hợp lệ hoặc đã hết hạn');
                 }
                 discount_total =
-                    coupon.type === 'AMOUNT'
-                        ? Number(coupon.discount_value)
-                        : (subtotal * Number(coupon.discount_value)) / 100;
-                if (coupon.max_discount && discount_total > Number(coupon.max_discount)) {
-                    discount_total = Number(coupon.max_discount);
+                    appliedCoupon.type === 'AMOUNT'
+                        ? Number(appliedCoupon.discount_value)
+                        : (subtotal * Number(appliedCoupon.discount_value)) / 100;
+                if (appliedCoupon.max_discount && discount_total > Number(appliedCoupon.max_discount)) {
+                    discount_total = Number(appliedCoupon.max_discount);
                 }
                 await tx.coupons.update({
-                    where: { coupon_id },
+                    where: { coupon_id: appliedCoupon.coupon_id },
                     data: { used_count: { increment: 1 } },
                 });
             }
@@ -294,7 +323,7 @@ const checkout = async (req, res) => {
                     id: newOrderId,
                     token_user,
                     payment_method,
-                    coupon_id: coupon_id || null,
+                    coupon_id: appliedCoupon ? appliedCoupon.coupon_id : null,
                     subtotal,
                     discount_total,
                     shipping_fee: Number(cart.shipping_fee) || 0,
@@ -306,12 +335,12 @@ const checkout = async (req, res) => {
                 },
             });
 
-            if (coupon_id) {
+            if (appliedCoupon) {
                 const user = await tx.users.findUnique({ where: { token_user } });
                 await tx.coupon_usages.create({
                     data: {
                         usage_id: uuidv4(),
-                        coupon_id,
+                        coupon_id: appliedCoupon.coupon_id,
                         order_id: newOrderId,
                         user_id: user.id,
                     },

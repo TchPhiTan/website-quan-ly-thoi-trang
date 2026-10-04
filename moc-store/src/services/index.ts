@@ -344,19 +344,45 @@ export const promoService = {
     await request("PATCH", `/admin/coupons/${encodeURIComponent(id)}`, { status: active ? "ACTIVE" : "INACTIVE" });
   },
   async validate(code: string, subtotal: number, authenticated = false): Promise<{ ok: true; promo: Promo } | { ok: false; message: string }> {
+    const cleanCode = (code || "").trim().toUpperCase();
+    if (!cleanCode) {
+      return { ok: false, message: "Vui lòng nhập mã giảm giá." };
+    }
+
     if (authenticated) {
       try {
-        const response = await request<{ coupon: ApiCoupon }>("POST", "/user/cart/coupon", { code: code.trim().toUpperCase() });
-        return { ok: true, promo: fromApiCoupon(response.coupon) };
+        const response = await request<{ coupon: ApiCoupon }>("POST", "/user/cart/coupon", { code: cleanCode, subtotal });
+        if (response?.coupon) {
+          return { ok: true, promo: fromApiCoupon(response.coupon) };
+        }
       } catch (error) {
-        return { ok: false, message: (error as Error).message };
+        const errMsg = (error as Error).message || "";
+        if (errMsg.includes("tối thiểu") || errMsg.includes("hết hạn") || errMsg.includes("lượt") || errMsg.includes("hoạt động")) {
+          return { ok: false, message: errMsg };
+        }
       }
     }
-    const promo = getDb().promos.find(p => p.code === code.trim().toUpperCase());
-    if (!promo || !promo.active) return { ok: false, message: "Mã giảm giá không hợp lệ hoặc đã ngừng hoạt động." };
-    if (promo.expires < today()) return { ok: false, message: "Mã giảm giá đã hết hạn." };
-    if (subtotal < promo.minOrder) return { ok: false, message: `Đơn hàng cần từ ${new Intl.NumberFormat("vi-VN").format(promo.minOrder)}₫ để dùng mã này.` };
-    return { ok: true, promo };
+
+    try {
+      const publicPromos = await this.listPublic();
+      const promo = publicPromos.find(p => p.code.trim().toUpperCase() === cleanCode) || getDb().promos.find(p => p.code.trim().toUpperCase() === cleanCode);
+      if (!promo || !promo.active) {
+        return { ok: false, message: "Mã giảm giá không tồn tại hoặc đã ngừng hoạt động." };
+      }
+      if (promo.expires && promo.expires < today()) {
+        return { ok: false, message: "Mã giảm giá đã hết hạn." };
+      }
+      if (subtotal < promo.minOrder) {
+        return { ok: false, message: `Đơn hàng cần đạt từ ${new Intl.NumberFormat("vi-VN").format(promo.minOrder)}₫ để dùng mã này.` };
+      }
+      return { ok: true, promo };
+    } catch {
+      const promo = getDb().promos.find(p => p.code.trim().toUpperCase() === cleanCode);
+      if (!promo || !promo.active) return { ok: false, message: "Mã giảm giá không tồn tại hoặc đã ngừng hoạt động." };
+      if (promo.expires && promo.expires < today()) return { ok: false, message: "Mã giảm giá đã hết hạn." };
+      if (subtotal < promo.minOrder) return { ok: false, message: `Đơn hàng cần đạt từ ${new Intl.NumberFormat("vi-VN").format(promo.minOrder)}₫ để dùng mã này.` };
+      return { ok: true, promo };
+    }
   },
 };
 

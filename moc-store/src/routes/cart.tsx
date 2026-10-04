@@ -88,7 +88,7 @@ function CartPage() {
 
   const promo = selectedPromo;
   const discount = promo && subtotal >= promo.minOrder ? discountOf(promo, subtotal) : 0;
-  const quick = !store.signedIn ? promos.find(p => p.active && subtotal >= p.minOrder) : undefined;
+  const quick = promos.find(p => p.active && subtotal >= p.minOrder);
 
   const checkout = async () => {
     const chosen = store.cart.filter(i => i.selected);
