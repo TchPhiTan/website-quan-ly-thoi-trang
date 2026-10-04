@@ -84,7 +84,7 @@ function Orders() {
                   <span className={`font-medium ${cancelled ? "text-destructive" : "text-accent"}`}>
                     {order.status === "Chờ duyệt" ? "Chờ xác nhận" : order.status === "Đã duyệt" ? "Đã xác nhận" : order.status === "Đang giao" ? "Đang giao" : order.status === "Hoàn tất" ? "Hoàn tất" : "Đã hủy"}
                   </span>
-                  {canCancel && (
+                  {canCancel && order.paymentMethod === "BANKING" && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -124,8 +124,17 @@ function Orders() {
                 <div className="text-sm flex-1 min-w-0">
                   <p className="font-medium leading-6">{order.items}</p>
                   <p className="text-muted-foreground mt-1 text-xs">Giao tới: {order.address}</p>
-                  <p className="text-muted-foreground text-xs mt-0.5">
-                    Phương thức: {order.paymentMethod === "BANKING" ? "Chuyển khoản ngân hàng" : "Thanh toán khi nhận hàng (COD)"}
+                  <p className="text-muted-foreground text-xs mt-1.5 flex items-center gap-1.5">
+                    <span>Phương thức:</span>
+                    {order.paymentMethod === "BANKING" ? (
+                      <span className="font-medium text-accent bg-accent/10 px-1.5 py-0.5 rounded text-[11px]">
+                        Chuyển khoản (VietQR)
+                      </span>
+                    ) : (
+                      <span className="font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded text-[11px]">
+                        Thanh toán khi nhận hàng (COD)
+                      </span>
+                    )}
                   </p>
                   <div className="mt-3 pt-3 border-t border-dashed flex flex-wrap items-center justify-between gap-3 text-xs">
                     <div className="space-y-0.5 text-muted-foreground">
