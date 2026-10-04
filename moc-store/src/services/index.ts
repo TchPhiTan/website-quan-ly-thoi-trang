@@ -307,6 +307,17 @@ const fromApiCoupon = (coupon: ApiCoupon): Promo => ({
   active: coupon.status ? coupon.status === "ACTIVE" : true,
 });
 export const promoService = {
+  async listPublic(): Promise<Promo[]> {
+    try {
+      const response = await request<{ data: ApiCoupon[] }>("GET", "/public/coupons");
+      if (response?.data && Array.isArray(response.data)) {
+        return response.data.map(fromApiCoupon);
+      }
+    } catch (e) {
+      console.warn("Lỗi khi tải mã giảm giá công khai:", e);
+    }
+    return getDb().promos.filter(p => p.active);
+  },
   async listAdmin(): Promise<Promo[]> {
     const response = await request<{ data: ApiCoupon[] }>("GET", "/admin/coupons?limit=100");
     return response.data.map(fromApiCoupon);

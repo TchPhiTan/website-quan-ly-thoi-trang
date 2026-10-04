@@ -317,7 +317,7 @@ function Home() {
             </h2>
           </div>
           <Link
-            to="/account/vouchers"
+            to="/promotions"
             className="inline-flex items-center gap-3 text-xs uppercase tracking-widest border-b border-primary-foreground pb-2 self-start md:self-end"
           >
             Khám phá voucher <ArrowUpRight className="size-4" />

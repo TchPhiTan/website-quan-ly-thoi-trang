@@ -326,4 +326,35 @@ const guestCheckout = async (req, res) => {
     }
 };
 
-module.exports = { getProducts, getProductBySlug, getCategories, getProductReviews, guestCheckout };
+// GET /public/coupons — Danh sách mã giảm giá công khai đang áp dụng
+const getPublicCoupons = async (req, res) => {
+    try {
+        const now = new Date();
+        const coupons = await db.coupons.findMany({
+            where: {
+                status: 'ACTIVE',
+                start_date: { lte: now },
+                end_date: { gte: now },
+            },
+            select: {
+                coupon_id: true,
+                code: true,
+                title: true,
+                type: true,
+                discount_value: true,
+                min_order_value: true,
+                max_discount: true,
+                end_date: true,
+                usage_limit: true,
+                used_count: true,
+            },
+            orderBy: { created_at: 'desc' },
+        });
+        res.json({ data: coupons });
+    } catch (error) {
+        logger.error('Lỗi lấy danh sách coupon công khai', { error: error.message });
+        res.status(500).json({ error: 'Lỗi hệ thống' });
+    }
+};
+
+module.exports = { getProducts, getProductBySlug, getCategories, getProductReviews, guestCheckout, getPublicCoupons };

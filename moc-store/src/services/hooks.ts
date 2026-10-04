@@ -50,11 +50,11 @@ export function usePromos(admin = false, refreshToken = 0) {
 	const localPromos = useSlice("promos");
 	useEffect(() => {
 		let active = true;
-		if (!admin) return () => { active = false; };
-		void promoService.listAdmin().then(value => { if (active) setPromos(value); }).catch(error => console.error("Không tải được khuyến mại từ API", error));
+		const load = admin ? promoService.listAdmin() : promoService.listPublic();
+		void load.then(value => { if (active && value.length > 0) setPromos(value); }).catch(error => console.error("Không tải được khuyến mại từ API", error));
 		return () => { active = false; };
 	}, [admin, refreshToken]);
-	return admin ? promos : localPromos;
+	return promos.length > 0 ? promos : (admin ? promos : localPromos);
 }
 export function useReviews(authenticated = false, admin = false) {
 	const [reviews, setReviews] = useState<Awaited<ReturnType<typeof reviewService.list>>>([]);
