@@ -361,7 +361,7 @@ export const promoService = {
         }
       } catch (error) {
         const errMsg = (error as Error).message || "";
-        if (errMsg.includes("tối thiểu") || errMsg.includes("hết hạn") || errMsg.includes("lượt") || errMsg.includes("hoạt động")) {
+        if (errMsg && !errMsg.includes("500") && !errMsg.includes("NetworkError") && !errMsg.includes("Failed to fetch")) {
           return { ok: false, message: errMsg };
         }
       }

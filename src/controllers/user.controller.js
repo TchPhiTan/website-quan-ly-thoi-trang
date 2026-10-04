@@ -168,11 +168,19 @@ const applyCoupon = async (req, res) => {
         }
         const now = new Date();
 
-        const coupon = await db.coupons.findFirst({
+        // Tìm coupon: thử tìm mã chính xác hoặc duyệt danh sách active (tránh lỗi Prisma sqlserver với mode: 'insensitive')
+        let coupon = await db.coupons.findFirst({
             where: {
-                code: { equals: normalizedCode, mode: 'insensitive' },
+                code: normalizedCode,
             },
         });
+
+        if (!coupon) {
+            const allActive = await db.coupons.findMany({
+                where: { status: 'ACTIVE' },
+            });
+            coupon = allActive.find(c => c.code.trim().toUpperCase() === normalizedCode.toUpperCase());
+        }
 
         if (
             !coupon ||
@@ -303,12 +311,20 @@ const checkout = async (req, res) => {
             let appliedCoupon = null;
             if (coupon_id) {
                 const cleanCouponParam = String(coupon_id).trim();
-                const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanCouponParam);
                 appliedCoupon = await tx.coupons.findFirst({
                     where: isUuid
-                        ? { OR: [{ coupon_id: cleanCouponParam }, { code: { equals: cleanCouponParam, mode: 'insensitive' } }] }
-                        : { code: { equals: cleanCouponParam, mode: 'insensitive' } },
+                        ? { OR: [{ coupon_id: cleanCouponParam }, { code: cleanCouponParam }] }
+                        : { code: cleanCouponParam },
                 });
+
+                if (!appliedCoupon) {
+                    const allActive = await tx.coupons.findMany({
+                        where: { status: 'ACTIVE' },
+                    });
+                    appliedCoupon = allActive.find(
+                        c => c.coupon_id === cleanCouponParam || c.code.trim().toUpperCase() === cleanCouponParam.toUpperCase()
+                    );
+                }
 
                 const now = new Date();
                 if (

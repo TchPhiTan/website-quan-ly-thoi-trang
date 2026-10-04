@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { ArrowLeft, ArrowRight, Minus, Plus, Trash2, ShoppingBag, Tag, MapPin, CreditCard, TicketPercent, Check, Sparkles, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Minus, Plus, Trash2, ShoppingBag, Tag, MapPin, CreditCard, TicketPercent, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -101,10 +101,6 @@ function CartPage() {
   const activeVouchers = promos.filter(p => p.active);
   const promo = selectedPromo;
   const discount = promo && subtotal >= promo.minOrder ? discountOf(promo, subtotal) : 0;
-  const quick = activeVouchers.find(p => p.code !== selectedPromo?.code && subtotal >= p.minOrder);
-  const nextTierPromo = activeVouchers.find(
-    p => p.minOrder > subtotal && (p.minOrder - subtotal) <= 400000
-  );
 
   // Auto-apply pending voucher if coming from /promotions or URL
   useEffect(() => {
@@ -147,7 +143,6 @@ function CartPage() {
             : "Áp dụng mã giảm giá thành công",
         );
       } else {
-        setSelectedPromo(null);
         setError(r.message);
       }
     });
@@ -472,23 +467,7 @@ function CartPage() {
               </div>
             </div>
 
-            {/* Gợi ý mua thêm để áp dụng voucher cấp cao hơn */}
-            {nextTierPromo && subtotal > 0 && (
-              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-sm text-xs flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
-                  <Sparkles className="size-4 text-amber-600 shrink-0" />
-                  <span>
-                    Mua thêm <strong>{money(nextTierPromo.minOrder - subtotal)}</strong> để áp dụng mã{" "}
-                    <strong className="font-mono">{nextTierPromo.code}</strong> ({nextTierPromo.title})
-                  </span>
-                </div>
-                <Link to="/" search={{ category: "" }}>
-                  <Button variant="ghost" size="sm" className="h-7 text-xs text-amber-900 dark:text-amber-200 hover:bg-amber-500/20 shrink-0 font-medium">
-                    Mua thêm
-                  </Button>
-                </Link>
-              </div>
-            )}
+
 
             {/* Mã giảm giá */}
             <div className="py-4 border-t space-y-3">
@@ -513,13 +492,19 @@ function CartPage() {
                   value={code}
                   onChange={e => {
                     setCode(e.target.value);
-                    setSelectedPromo(null);
                     setError("");
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleApplyCode(code);
+                    }
                   }}
                   placeholder="Nhập mã giảm giá..."
                   className="bg-background h-10 text-xs font-mono uppercase"
                 />
                 <Button
+                  type="button"
                   variant="outline"
                   className="h-10 text-xs shrink-0"
                   onClick={() => handleApplyCode(code)}
@@ -549,22 +534,13 @@ function CartPage() {
                     onClick={() => {
                       setSelectedPromo(null);
                       setCode("");
+                      setError("");
                       store.notify("Đã gỡ mã giảm giá");
                     }}
                   >
                     Gỡ bỏ
                   </Button>
                 </div>
-              )}
-
-              {quick && !selectedPromo && (
-                <Button
-                  variant="ghost"
-                  className="text-accent px-0 text-xs justify-start h-auto py-1"
-                  onClick={() => handleApplyPromoObject(quick)}
-                >
-                  <Tag className="size-3.5 mr-1" /> Gợi ý: {quick.code} ({quick.title})
-                </Button>
               )}
             </div>
 
