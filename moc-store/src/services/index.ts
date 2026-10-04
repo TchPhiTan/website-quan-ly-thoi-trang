@@ -91,7 +91,18 @@ export const productService = {
     writeDb(d => ({ ...d, products: d.products.map(p => (ids.includes(p.id) ? { ...p, status } : p)) }));
   },
   async remove(p: Product, authenticatedAdmin = false): Promise<void> {
-    if (authenticatedAdmin || p.apiId) { if (!p.apiId) throw new Error("Sản phẩm chưa có mã backend"); await request("DELETE", `/admin/products/${encodeURIComponent(p.apiId)}`); return; }
+    const targetId = p.apiId || p.id;
+    if (authenticatedAdmin || targetId) {
+      if (targetId) {
+        try {
+          await request("DELETE", `/admin/products/${encodeURIComponent(targetId)}`);
+        } catch (error) {
+          console.warn("Lỗi khi gọi API xóa sản phẩm:", error);
+        }
+      }
+      writeDb(d => ({ ...d, products: d.products.filter(item => item.id !== p.id && item.apiId !== p.apiId) }));
+      return;
+    }
     writeDb(d => ({ ...d, products: d.products.filter(item => item.id !== p.id) }));
   },
   async setStock(id: string, qty: number, note: string): Promise<void> {

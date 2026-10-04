@@ -11,10 +11,14 @@ export const Route = createFileRoute("/admin/products/")({ head: () => ({ meta: 
 const timeOpts = [{ value: "0", label: "Tất cả thời gian" }, { value: "7", label: "7 ngày qua" }, { value: "30", label: "30 ngày qua" }, { value: "90", label: "90 ngày qua" }];
 function Products() {
   const a = useAdmin(); const products = useProducts(a.signedIn); const [days, setDays] = useState("0"); const [sel, setSel] = useState<string[]>([]); const [removed, setRemoved] = useState<string[]>([]); const [view, setView] = useState<AProduct | null>(null);
-  const rows = products.filter(p => !removed.includes(p.id) && withinDays(p.createdAt, Number(days)));
+  const rows = products.filter(p => !removed.includes(p.id) && !(p.apiId && removed.includes(p.apiId)) && withinDays(p.createdAt, Number(days)));
   const all = rows.length > 0 && rows.every(p => sel.includes(p.id));
   const stop = (ids: string[]) => { void a.run(productService.setStatus(ids, "Ngừng bán", a.signedIn, products), "Đã chuyển sang trạng thái ngừng bán"); setSel([]); };
-  const remove = (product: AProduct) => { void a.run(productService.remove(product, a.signedIn), "Đã xóa sản phẩm").then(ok => { if (ok) setRemoved(current => [...current, product.id]); }); };
+  const remove = (product: AProduct) => {
+    void a.run(productService.remove(product, a.signedIn), "Đã xóa sản phẩm").then(ok => {
+      if (ok) setRemoved(current => [...current, product.id, ...(product.apiId ? [product.apiId] : [])]);
+    });
+  };
   return <><PageHead eyebrow="Danh mục" title="Quản lý sản phẩm" action={<Link to="/admin/products/edit" search={{ id: undefined }}><Button><Plus /> Thêm sản phẩm</Button></Link>} />
     <div className="flex flex-wrap items-center gap-3 mb-5"><Select label="Lọc theo thời gian" value={days} onChange={setDays} options={timeOpts} />{sel.length > 0 && <Button variant="outline" onClick={() => stop(sel)}>Ngừng bán {sel.length} sản phẩm đã chọn</Button>}<span className="text-xs text-muted-foreground ml-auto">{rows.length} sản phẩm</span></div>
     <Table><thead><tr><th className={th}><input type="checkbox" aria-label="Chọn tất cả" className="accent-accent size-4" checked={all} onChange={e => setSel(e.target.checked ? rows.map(p => p.id) : [])} /></th><th className={th}>Sản phẩm</th><th className={th}>Danh mục</th><th className={th}>Giá</th><th className={th}>Tồn</th><th className={th}>Ngày tạo</th><th className={th}>Trạng thái</th><th className={th}>Thao tác</th></tr></thead>

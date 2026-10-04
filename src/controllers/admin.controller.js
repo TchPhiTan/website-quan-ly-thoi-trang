@@ -52,14 +52,24 @@ const getProducts = async (req, res) => {
 // POST /admin/products — Tạo sản phẩm mới
 const createProduct = async (req, res) => {
     try {
-        const { title, description, price, discount = 0, category_id, size = '[]', thumbnail, status = 'active', slug } = req.body;
+        const { title, description, price, discount = 0, category_id, size = '[]', thumbnail, status = 'active', slug, stock = 10 } = req.body;
 
         if (!title || !price || !category_id || !slug) {
             return res.status(400).json({ error: 'Thiếu thông tin bắt buộc: title, price, category_id, slug' });
         }
 
         const existing = await db.products.findUnique({ where: { slug } });
-        if (existing) return res.status(409).json({ error: 'Slug đã được sử dụng' });
+        if (existing) {
+            if (existing.deleted) {
+                // Giải phóng slug của sản phẩm cũ đã xóa mềm
+                await db.products.update({
+                    where: { id: existing.id },
+                    data: { slug: `${existing.slug}-deleted-${Date.now()}` },
+                });
+            } else {
+                return res.status(409).json({ error: 'Slug đã được sử dụng' });
+            }
+        }
 
         const product = await db.products.create({
             data: {
@@ -68,6 +78,38 @@ const createProduct = async (req, res) => {
                 discount: Number(discount), category_id,
                 size: typeof size === 'string' ? size : JSON.stringify(size),
                 thumbnail, status, slug,
+            },
+        });
+
+        // Tạo biến thể mặc định với số lượng tồn kho ban đầu
+        let defaultColor = await db.colors.findFirst();
+        if (!defaultColor) {
+            defaultColor = await db.colors.create({
+                data: {
+                    id: uuidv4(),
+                    name: 'Mặc định',
+                    slug: 'mac-dinh',
+                    hex: '#000000',
+                },
+            });
+        }
+
+        let parsedSize = 'FreeSize';
+        try {
+            const list = Array.isArray(size) ? size : JSON.parse(size);
+            if (Array.isArray(list) && list.length > 0) parsedSize = list[0];
+        } catch {
+            parsedSize = typeof size === 'string' && size ? size : 'FreeSize';
+        }
+
+        await db.product_variants.create({
+            data: {
+                id: uuidv4(),
+                product_id: product.id,
+                color_id: defaultColor.id,
+                color: defaultColor.name,
+                size: String(parsedSize),
+                stock: Number(stock) || 10,
             },
         });
 
@@ -82,10 +124,16 @@ const createProduct = async (req, res) => {
 const updateProduct = async (req, res) => {
     try {
         const { id } = req.params;
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+        const product = await db.products.findFirst({
+            where: isUuid ? { OR: [{ id }, { slug: id }] } : { slug: id },
+        });
+        if (!product) return res.status(404).json({ error: 'Không tìm thấy sản phẩm' });
+
         const { title, description, price, discount, category_id, size, thumbnail, status, slug } = req.body;
 
         await db.products.update({
-            where: { id },
+            where: { id: product.id },
             data: {
                 ...(title && { title }),
                 ...(description !== undefined && { description }),
@@ -110,10 +158,31 @@ const updateProduct = async (req, res) => {
 const deleteProduct = async (req, res) => {
     try {
         const { id } = req.params;
-        await db.products.update({
-            where: { id },
-            data: { deleted: true, deleted_at: new Date(), status: 'inactive' },
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+        const product = await db.products.findFirst({
+            where: isUuid ? { OR: [{ id }, { slug: id }] } : { slug: id },
         });
+
+        if (!product) {
+            return res.status(404).json({ error: 'Không tìm thấy sản phẩm' });
+        }
+
+        await db.$transaction(async (tx) => {
+            await tx.products.update({
+                where: { id: product.id },
+                data: {
+                    deleted: true,
+                    deleted_at: new Date(),
+                    status: 'inactive',
+                    slug: `${product.slug}-deleted-${Date.now()}`,
+                },
+            });
+            await tx.product_variants.updateMany({
+                where: { product_id: product.id },
+                data: { stock: 0 },
+            });
+        });
+
         res.json({ message: 'Đã xóa sản phẩm' });
     } catch (error) {
         logger.error('Admin: Lỗi xóa sản phẩm', { error: error.message });

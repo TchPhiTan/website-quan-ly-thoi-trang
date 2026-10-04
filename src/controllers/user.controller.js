@@ -47,10 +47,24 @@ const addToCart = async (req, res) => {
     try {
         const { product_id, variant_id, size, color, quantity = 1, price_unit } = req.body;
 
-        const variant = await db.product_variants.findUnique({ where: { id: variant_id } });
-        if (!variant || variant.stock < quantity) {
+        const parsedQty = parseInt(quantity, 10);
+        if (isNaN(parsedQty) || parsedQty < 1 || parsedQty > 100) {
+            return res.status(400).json({ error: 'Số lượng không hợp lệ (cần từ 1 đến 100)' });
+        }
+
+        const variant = await db.product_variants.findUnique({
+            where: { id: variant_id },
+            include: { products: true },
+        });
+        if (!variant || variant.stock < parsedQty) {
             return res.status(400).json({ error: 'Sản phẩm không đủ tồn kho' });
         }
+
+        // Lấy giá chuẩn từ database để chống can thiệp giá từ client
+        const realProduct = variant.products;
+        const discountPercent = Number(realProduct?.discount) || 0;
+        const basePrice = Number(realProduct?.price) || Number(price_unit) || 0;
+        const finalPriceUnit = discountPercent > 0 ? basePrice * (1 - discountPercent / 100) : basePrice;
 
         const cart = await db.cart.findUnique({ where: { token_user: req.user.token_user } });
         if (!cart) return res.status(404).json({ error: 'Giỏ hàng không tồn tại' });
@@ -60,21 +74,27 @@ const addToCart = async (req, res) => {
         });
 
         if (existingItem) {
+            if (variant.stock < existingItem.quantity + parsedQty) {
+                return res.status(400).json({ error: `Số lượng vượt quá tồn kho (hiện còn ${variant.stock})` });
+            }
             await db.cart_items.update({
                 where: { id: existingItem.id },
-                data: { quantity: { increment: quantity } },
+                data: {
+                    quantity: { increment: parsedQty },
+                    price_unit: finalPriceUnit,
+                },
             });
         } else {
             await db.cart_items.create({
                 data: {
                     id: uuidv4(),
                     cart_id: cart.id,
-                    product_id,
+                    product_id: variant.product_id || product_id,
                     variant_id,
-                    size,
-                    color,
-                    price_unit,
-                    quantity,
+                    size: size || variant.size || '',
+                    color: color || variant.color || '',
+                    price_unit: finalPriceUnit,
+                    quantity: parsedQty,
                     line_discount: 0,
                 },
             });
@@ -93,19 +113,20 @@ const updateCartItem = async (req, res) => {
         const { id } = req.params;
         const { quantity } = req.body;
 
-        if (quantity < 1) {
-            return res.status(400).json({ error: 'Số lượng phải >= 1' });
+        const parsedQty = parseInt(quantity, 10);
+        if (isNaN(parsedQty) || parsedQty < 1 || parsedQty > 100) {
+            return res.status(400).json({ error: 'Số lượng phải từ 1 đến 100' });
         }
 
         const item = await db.cart_items.findUnique({ where: { id } });
         if (!item) return res.status(404).json({ error: 'Không tìm thấy sản phẩm trong giỏ' });
 
         const variant = await db.product_variants.findUnique({ where: { id: item.variant_id } });
-        if (variant.stock < quantity) {
+        if (variant && variant.stock < parsedQty) {
             return res.status(400).json({ error: `Chỉ còn ${variant.stock} sản phẩm` });
         }
 
-        await db.cart_items.update({ where: { id }, data: { quantity } });
+        await db.cart_items.update({ where: { id }, data: { quantity: parsedQty } });
         res.json({ message: 'Đã cập nhật số lượng' });
     } catch (error) {
         logger.error('Lỗi cập nhật giỏ hàng', { error: error.message });
@@ -117,7 +138,19 @@ const updateCartItem = async (req, res) => {
 const removeCartItem = async (req, res) => {
     try {
         const { id } = req.params;
-        await db.cart_items.delete({ where: { id } });
+        const cart = await db.cart.findUnique({ where: { token_user: req.user.token_user } });
+        if (cart) {
+            await db.cart_items.deleteMany({
+                where: {
+                    cart_id: cart.id,
+                    OR: [
+                        { id },
+                        { variant_id: id },
+                        { product_id: id },
+                    ],
+                },
+            });
+        }
         res.json({ message: 'Đã xóa sản phẩm khỏi giỏ hàng' });
     } catch (error) {
         logger.error('Lỗi xóa sản phẩm giỏ hàng', { error: error.message });
@@ -214,15 +247,31 @@ const checkout = async (req, res) => {
             let discount_total = 0;
 
             for (const item of cart.cart_items) {
-                subtotal += Number(item.price_unit) * item.quantity;
+                const variant = await tx.product_variants.findUnique({
+                    where: { id: item.variant_id },
+                    include: { products: true },
+                });
+                if (!variant || variant.stock < item.quantity) {
+                    const prodName = variant?.products?.title || 'Sản phẩm';
+                    throw new Error(`Sản phẩm "${prodName}" không đủ tồn kho (còn ${variant ? variant.stock : 0})`);
+                }
+                const realProduct = variant.products;
+                const discountPercent = Number(realProduct?.discount) || 0;
+                const basePrice = Number(realProduct?.price) || 0;
+                const unitPrice = discountPercent > 0 ? Math.round(basePrice * (1 - discountPercent / 100)) : basePrice;
+                item.price_unit = unitPrice;
+                subtotal += unitPrice * item.quantity;
             }
 
             if (coupon_id) {
+                const now = new Date();
                 const coupon = await tx.coupons.findUnique({ where: { coupon_id } });
                 if (
                     !coupon ||
                     coupon.status !== 'ACTIVE' ||
-                    coupon.used_count >= (coupon.usage_limit || Infinity) ||
+                    (coupon.start_date && coupon.start_date > now) ||
+                    (coupon.end_date && coupon.end_date < now) ||
+                    (coupon.usage_limit && coupon.used_count >= coupon.usage_limit) ||
                     Number(subtotal) < Number(coupon.min_order_value)
                 ) {
                     throw new Error('Mã giảm giá không hợp lệ hoặc đã hết hạn');

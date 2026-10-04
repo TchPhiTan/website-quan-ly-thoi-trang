@@ -232,55 +232,84 @@ const guestCheckout = async (req, res) => {
 
             const orderId = uuidv4();
             let subtotal = 0;
+            const preparedItems = [];
 
             for (const item of cartItems) {
-                const variant = await tx.product_variants.findUnique({ where: { id: item.variant_id } });
-                if (!variant || variant.stock < item.quantity) {
-                    throw new Error(`Sản phẩm hết hàng hoặc không đủ tồn kho`);
+                const qty = parseInt(item.quantity, 10);
+                if (isNaN(qty) || qty < 1 || qty > 100) {
+                    throw new Error('Số lượng sản phẩm không hợp lệ (từ 1 đến 100)');
                 }
-                subtotal += Number(item.price) * item.quantity;
+
+                const variant = await tx.product_variants.findUnique({
+                    where: { id: item.variant_id },
+                    include: { products: true, colors: true },
+                });
+
+                if (!variant || variant.stock < qty) {
+                    const prodName = variant?.products?.title || 'Sản phẩm';
+                    throw new Error(`${prodName} đã hết hàng hoặc không đủ tồn kho (còn ${variant ? variant.stock : 0})`);
+                }
+
+                const realProduct = variant.products;
+                const discountPercent = Number(realProduct?.discount) || 0;
+                const basePrice = Number(realProduct?.price) || 0;
+                const unitPrice = discountPercent > 0 ? Math.round(basePrice * (1 - discountPercent / 100)) : basePrice;
+
+                subtotal += unitPrice * qty;
+
+                preparedItems.push({
+                    variant,
+                    quantity: qty,
+                    unitPrice,
+                    size: item.size || variant.size || '',
+                    color: item.color || variant.colors?.name || '',
+                });
             }
 
             await tx.orders.create({
                 data: {
                     id: orderId,
                     token_user: shadowUserToken,
-                    payment_method,
+                    payment_method: payment_method || 'cod',
                     status: 'pending',
                     subtotal,
                     shipping_fee: 0,
                     shipping_full_name,
-                    shipping_phone,
-                    shipping_line1,
-                    shipping_city,
+                    shipping_phone: cleanShippingPhone,
+                    shipping_line1: shipping_line1 || '',
+                    shipping_city: shipping_city || '',
                 },
             });
 
-            for (const item of cartItems) {
+            for (const item of preparedItems) {
                 const orderItemId = uuidv4();
                 await tx.order_items.create({
                     data: {
                         id: orderItemId,
                         order_id: orderId,
-                        product_id: item.product_id,
-                        variant_id: item.variant_id,
-                        price: item.price,
+                        product_id: item.variant.product_id,
+                        variant_id: item.variant.id,
+                        price: item.unitPrice,
                         quantity: item.quantity,
                         size: item.size,
                         color: item.color,
                     },
                 });
 
-                await tx.product_variants.updateMany({
-                    where: { id: item.variant_id, stock: { gte: item.quantity } },
+                const updated = await tx.product_variants.updateMany({
+                    where: { id: item.variant.id, stock: { gte: item.quantity } },
                     data: { stock: { decrement: item.quantity } },
                 });
+
+                if (updated.count === 0) {
+                    throw new Error(`Sản phẩm "${item.variant.products.title}" không đủ tồn kho`);
+                }
 
                 await tx.inventory_movements.create({
                     data: {
                         id: uuidv4(),
-                        product_id: item.product_id,
-                        variant_id: item.variant_id,
+                        product_id: item.variant.product_id,
+                        variant_id: item.variant.id,
                         order_item_id: orderItemId,
                         delta: -item.quantity,
                         reason: 'sales',

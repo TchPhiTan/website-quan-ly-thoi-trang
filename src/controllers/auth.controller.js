@@ -22,6 +22,19 @@ const register = async (req, res) => {
         }
 
         const normalizedEmail = String(email).trim().toLowerCase();
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(normalizedEmail) || normalizedEmail.length > 100) {
+            return res.status(400).json({ error: 'Định dạng email không hợp lệ' });
+        }
+
+        if (typeof password !== 'string' || password.length < 6 || password.length > 100) {
+            return res.status(400).json({ error: 'Mật khẩu phải từ 6 đến 100 ký tự' });
+        }
+
+        if (typeof full_name !== 'string' || full_name.trim().length === 0 || full_name.trim().length > 100) {
+            return res.status(400).json({ error: 'Họ tên không hợp lệ (tối đa 100 ký tự)' });
+        }
+
         const cleanPhone = phone ? String(phone).replace(/\s/g, '') : null;
         if (cleanPhone && !/^0\d{9}$/.test(cleanPhone)) {
             return res.status(400).json({ error: 'Số điện thoại không hợp lệ (cần 10 chữ số, bắt đầu bằng 0)' });
