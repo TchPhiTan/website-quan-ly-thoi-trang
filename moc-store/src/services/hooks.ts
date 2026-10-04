@@ -39,7 +39,7 @@ export function useOrders(admin = false, refreshToken = 0) {
 	const [orders, setOrders] = useState<Awaited<ReturnType<typeof orderService.list>>>([]);
 	useEffect(() => {
 		let active = true;
-		if (!signedIn) { setOrders([]); return () => { active = false; }; }
+		if (!admin && !signedIn) { setOrders([]); return () => { active = false; }; }
 		void orderService.list(admin).then(value => { if (active) setOrders(value); }).catch(error => console.error("Không tải được đơn hàng từ API", error));
 		return () => { active = false; };
 	}, [admin, refreshToken, signedIn]);
