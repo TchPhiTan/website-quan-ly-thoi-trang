@@ -172,9 +172,8 @@ const deleteProduct = async (req, res) => {
                 where: { id: product.id },
                 data: {
                     deleted: true,
-                    deleted_at: new Date(),
                     status: 'inactive',
-                    slug: `${product.slug}-deleted-${Date.now()}`,
+                    slug: `${product.slug.slice(0, 160)}-deleted-${Date.now()}`,
                 },
             });
             await tx.product_variants.updateMany({
