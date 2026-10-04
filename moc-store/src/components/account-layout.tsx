@@ -1,8 +1,10 @@
-import { Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { UserRound, Package, MapPin, Star, TicketPercent, LogOut, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
+import { useEffect } from "react";
 const nav = [{ to: "/account", label: "Thông tin tài khoản", icon: UserRound }, { to: "/account/orders", label: "Lịch sử đơn hàng", icon: Package }, { to: "/account/addresses", label: "Sổ địa chỉ", icon: MapPin }, { to: "/account/reviews", label: "Đánh giá & phản hồi", icon: Star }, { to: "/account/vouchers", label: "Ví voucher", icon: TicketPercent }] as const;
-export function AccountLayout() { const store = useStore(); const path = useRouterState({ select: s => s.location.pathname }); const current = nav.find(n => n.to === path)?.label || "Tài khoản";
+export function AccountLayout() { const store = useStore(); const navigate = useNavigate(); const path = useRouterState({ select: s => s.location.pathname }); const current = nav.find(n => n.to === path)?.label || "Tài khoản";
+  useEffect(() => { if (!store.signedIn) { void navigate({ to: "/", search: { category: "" } }); } }, [store.signedIn, navigate]);
 return <div className="site-container pt-8"><div className="flex items-center gap-2 text-xs text-muted-foreground mb-8"><Link to="/" search={{ category: "" }}>Trang chủ</Link><ChevronRight className="size-3"/><span>Tài khoản</span><ChevronRight className="size-3"/><span className="text-foreground">{current}</span></div><div className="grid md:grid-cols-[235px_1fr] lg:grid-cols-[280px_1fr] gap-8 lg:gap-14"><aside><div className="pb-7 border-b"><p className="text-[11px] text-accent tracking-widest uppercase mb-2">TÀI KHOẢN CỦA TÔI</p><h1 className="editorial-title text-4xl">Xin chào, Minh Anh</h1></div><nav className="flex md:flex-col gap-1 overflow-x-auto py-5 border-b md:border-b-0">{nav.map(n => <Link key={n.to} to={n.to} activeOptions={{ exact: true }} className={`shrink-0 flex items-center gap-3 px-3 py-3 text-sm hover:bg-secondary ${path === n.to ? "bg-secondary font-semibold border-l-2 border-accent" : "text-muted-foreground"}`}><n.icon className="size-4"/>{n.label}</Link>)}<Button variant="ghost" className="hidden md:flex justify-start gap-3 text-muted-foreground mt-5" onClick={store.signOut}><LogOut className="size-4"/> Đăng xuất</Button></nav></aside><div className="min-w-0"><Outlet/></div></div></div>;
 }
