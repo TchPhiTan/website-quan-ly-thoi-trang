@@ -28,5 +28,5 @@ export default defineConfig({
     tailwindcss(),
   ],
   // Chạy bằng Node (npm run build && npm start). Đổi preset nếu deploy nơi khác.
-  nitro: { preset: "node-server" },
+  nitro: { preset: "vercel" },
 });
