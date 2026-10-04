@@ -1,14 +1,23 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { ArrowLeft, ArrowRight, Minus, Plus, Trash2, ShoppingBag, Tag, MapPin, CreditCard } from "lucide-react";
+import { ArrowLeft, ArrowRight, Minus, Plus, Trash2, ShoppingBag, Tag, MapPin, CreditCard, TicketPercent, Check, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { money, useStore } from "@/lib/store";
 import { useProducts, usePromos, useAddresses } from "@/services/hooks";
 import { promoService, orderService, profileService, discountOf } from "@/services";
 import type { Promo } from "@/services/types";
 
+type CartSearch = {
+  coupon?: string;
+};
+
 export const Route = createFileRoute("/cart")({
+  validateSearch: (search: Record<string, unknown>): CartSearch => ({
+    coupon: typeof search.coupon === "string" ? search.coupon : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Giỏ hàng — MỘC" },
@@ -25,8 +34,10 @@ export const Route = createFileRoute("/cart")({
 function CartPage() {
   const store = useStore();
   const navigate = useNavigate();
+  const search = Route.useSearch();
   const [code, setCode] = useState("");
   const [selectedPromo, setSelectedPromo] = useState<Promo | null>(null);
+  const [voucherModalOpen, setVoucherModalOpen] = useState(false);
   const products = useProducts();
   const promos = usePromos();
   const { addresses } = useAddresses();
@@ -86,9 +97,75 @@ function CartPage() {
     .filter(i => i.selected)
     .reduce((sum, i) => sum + (products.find(p => p.id === i.productId)?.price || 0) * i.quantity, 0);
 
+  const activeVouchers = promos.filter(p => p.active);
   const promo = selectedPromo;
   const discount = promo && subtotal >= promo.minOrder ? discountOf(promo, subtotal) : 0;
-  const quick = promos.find(p => p.active && subtotal >= p.minOrder);
+  const quick = activeVouchers.find(p => p.code !== selectedPromo?.code && subtotal >= p.minOrder);
+  const nextTierPromo = activeVouchers.find(
+    p => p.minOrder > subtotal && (p.minOrder - subtotal) <= 400000
+  );
+
+  // Auto-apply pending voucher if coming from /promotions or URL
+  useEffect(() => {
+    const pendingCode = search.coupon || (typeof window !== "undefined" ? sessionStorage.getItem("pending_coupon") : null);
+    if (pendingCode && subtotal > 0 && !selectedPromo) {
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("pending_coupon");
+      }
+      const clean = pendingCode.trim().toUpperCase();
+      setCode(clean);
+      void promoService.validate(clean, subtotal, store.signedIn).then(r => {
+        if (r.ok) {
+          setSelectedPromo(r.promo);
+          setCode(r.promo.code);
+          setError("");
+          store.notify(
+            r.promo.kind === "Miễn phí vận chuyển"
+              ? `Đã tự động áp dụng miễn phí vận chuyển (${r.promo.code})`
+              : `Đã tự động áp dụng mã ưu đãi ${r.promo.code}`,
+          );
+        }
+      });
+    }
+  }, [search.coupon, subtotal, store.signedIn, selectedPromo]);
+
+  const handleApplyCode = (codeToApply: string) => {
+    const clean = codeToApply.trim().toUpperCase();
+    if (!clean) {
+      setError("Vui lòng nhập mã giảm giá.");
+      return;
+    }
+    void promoService.validate(clean, subtotal, store.signedIn).then(r => {
+      if (r.ok) {
+        setSelectedPromo(r.promo);
+        setCode(r.promo.code);
+        setError("");
+        store.notify(
+          r.promo.kind === "Miễn phí vận chuyển"
+            ? "Đã áp dụng miễn phí vận chuyển"
+            : "Áp dụng mã giảm giá thành công",
+        );
+      } else {
+        setSelectedPromo(null);
+        setError(r.message);
+      }
+    });
+  };
+
+  const handleApplyPromoObject = (p: Promo) => {
+    if (subtotal < p.minOrder) {
+      setError(`Đơn hàng cần từ ${money(p.minOrder)} để dùng mã này.`);
+      return;
+    }
+    setSelectedPromo(p);
+    setCode(p.code);
+    setError("");
+    store.notify(
+      p.kind === "Miễn phí vận chuyển"
+        ? "Đã áp dụng miễn phí vận chuyển"
+        : `Áp dụng voucher ${p.code} thành công`,
+    );
+  };
 
   const checkout = async () => {
     const chosen = store.cart.filter(i => i.selected);
@@ -383,9 +460,42 @@ function CartPage() {
               </div>
             </div>
 
+            {/* Gợi ý mua thêm để áp dụng voucher cấp cao hơn */}
+            {nextTierPromo && subtotal > 0 && (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-sm text-xs flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
+                  <Sparkles className="size-4 text-amber-600 shrink-0" />
+                  <span>
+                    Mua thêm <strong>{money(nextTierPromo.minOrder - subtotal)}</strong> để áp dụng mã{" "}
+                    <strong className="font-mono">{nextTierPromo.code}</strong> ({nextTierPromo.title})
+                  </span>
+                </div>
+                <Link to="/" search={{ category: "" }}>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs text-amber-900 dark:text-amber-200 hover:bg-amber-500/20 shrink-0 font-medium">
+                    Mua thêm
+                  </Button>
+                </Link>
+              </div>
+            )}
+
             {/* Mã giảm giá */}
             <div className="py-4 border-t space-y-3">
-              <p className="font-medium text-xs uppercase tracking-wider text-muted-foreground">Mã ưu đãi</p>
+              <div className="flex items-center justify-between">
+                <p className="font-medium text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Tag className="size-3.5 text-accent" />
+                  Mã ưu đãi
+                </p>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="p-0 h-auto text-xs text-accent hover:underline flex items-center gap-1 font-medium"
+                  onClick={() => setVoucherModalOpen(true)}
+                >
+                  <TicketPercent className="size-3.5" />
+                  Chọn voucher ({activeVouchers.length})
+                </Button>
+              </div>
+
               <div className="flex gap-2">
                 <Input
                   value={code}
@@ -395,42 +505,51 @@ function CartPage() {
                     setError("");
                   }}
                   placeholder="Nhập mã giảm giá..."
-                  className="bg-background h-10 text-xs"
+                  className="bg-background h-10 text-xs font-mono uppercase"
                 />
                 <Button
                   variant="outline"
-                  className="h-10 text-xs"
-                  onClick={() => {
-                    void promoService.validate(code, subtotal, store.signedIn).then(r => {
-                      if (r.ok) {
-                        setSelectedPromo(r.promo);
-                        setCode(r.promo.code);
-                        setError("");
-                        store.notify(
-                          r.promo.kind === "Miễn phí vận chuyển"
-                            ? "Đã áp dụng miễn phí vận chuyển"
-                            : "Áp dụng mã giảm giá thành công",
-                        );
-                      } else {
-                        setSelectedPromo(null);
-                        setError(r.message);
-                      }
-                    });
-                  }}
+                  className="h-10 text-xs shrink-0"
+                  onClick={() => handleApplyCode(code)}
                 >
                   Áp dụng
                 </Button>
               </div>
 
-              {quick && (
+              {/* Hiển thị voucher đang áp dụng */}
+              {selectedPromo && (
+                <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-sm flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <Check className="size-4 text-emerald-600 shrink-0" />
+                    <div>
+                      <p className="font-semibold text-emerald-950 dark:text-emerald-200">
+                        {selectedPromo.code}: {selectedPromo.title}
+                      </p>
+                      <p className="text-[11px] text-emerald-700 dark:text-emerald-300">
+                        Tiết kiệm: -{money(discount)}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
+                    onClick={() => {
+                      setSelectedPromo(null);
+                      setCode("");
+                      store.notify("Đã gỡ mã giảm giá");
+                    }}
+                  >
+                    Gỡ bỏ
+                  </Button>
+                </div>
+              )}
+
+              {quick && !selectedPromo && (
                 <Button
                   variant="ghost"
                   className="text-accent px-0 text-xs justify-start h-auto py-1"
-                  onClick={() => {
-                    setCode(quick.code);
-                    setSelectedPromo(quick);
-                    store.notify(`Đã áp dụng voucher ${quick.code}`);
-                  }}
+                  onClick={() => handleApplyPromoObject(quick)}
                 >
                   <Tag className="size-3.5 mr-1" /> Gợi ý: {quick.code} ({quick.title})
                 </Button>
@@ -471,6 +590,99 @@ function CartPage() {
           </aside>
         </div>
       )}
+
+      {/* Modal chọn Voucher MỘC */}
+      <Dialog open={voucherModalOpen} onOpenChange={setVoucherModalOpen}>
+        <DialogContent className="max-w-md p-6 max-h-[85vh] flex flex-col">
+          <DialogTitle className="flex items-center gap-2 text-base font-medium">
+            <TicketPercent className="size-5 text-accent" />
+            Chọn Voucher MỘC
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            Chọn mã ưu đãi khả dụng từ danh sách dưới đây để áp dụng trực tiếp vào đơn hàng.
+          </DialogDescription>
+
+          <div className="flex-1 overflow-y-auto space-y-3 pr-1 my-2">
+            {activeVouchers.length === 0 ? (
+              <p className="text-center py-8 text-xs text-muted-foreground">Hiện chưa có voucher nào khả dụng.</p>
+            ) : (
+              activeVouchers.map(v => {
+                const isEligible = subtotal >= v.minOrder;
+                const isCurrent = selectedPromo?.code === v.code;
+                const missing = v.minOrder - subtotal;
+
+                return (
+                  <div
+                    key={v.code}
+                    className={cn(
+                      "p-3.5 border rounded-sm transition-all flex flex-col justify-between gap-2.5",
+                      isCurrent
+                        ? "border-accent bg-accent/5 ring-1 ring-accent"
+                        : isEligible
+                        ? "border-border bg-card hover:border-accent/40"
+                        : "border-border/60 bg-muted/30 opacity-75"
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-xs px-2 py-0.5 bg-secondary text-foreground rounded-xs border border-border">
+                            {v.code}
+                          </span>
+                          <span className="text-[11px] font-semibold text-accent uppercase">
+                            {v.kind}
+                          </span>
+                        </div>
+                        <p className="font-medium text-sm mt-1">{v.title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {v.minOrder > 0 ? `Đơn tối thiểu: ${money(v.minOrder)}` : "Mọi giá trị đơn hàng"}
+                        </p>
+                      </div>
+
+                      <div className="shrink-0 text-right">
+                        {isCurrent ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-accent font-semibold px-2 py-1 bg-accent/10 rounded-xs">
+                            <Check className="size-3.5" /> Đang dùng
+                          </span>
+                        ) : isEligible ? (
+                          <Button
+                            size="sm"
+                            className="h-8 text-xs px-3"
+                            onClick={() => {
+                              handleApplyPromoObject(v);
+                              setVoucherModalOpen(false);
+                            }}
+                          >
+                            Áp dụng
+                          </Button>
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground px-2 py-1 bg-muted rounded-xs block">
+                            Chưa đủ ĐK
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {!isEligible && (
+                      <div className="pt-2 border-t border-dashed border-border/70 flex items-center justify-between text-[11px] text-amber-700 dark:text-amber-300">
+                        <span>Mua thêm {money(missing)} để sử dụng</span>
+                        <Link
+                          to="/"
+                          search={{ category: "" }}
+                          onClick={() => setVoucherModalOpen(false)}
+                          className="hover:underline font-medium inline-flex items-center gap-0.5"
+                        >
+                          Mua thêm <ArrowRight className="size-3" />
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

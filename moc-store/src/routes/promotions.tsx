@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Tag, ChevronDown, Copy, Check, ShoppingBag, Sparkles, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ const fmt = (d: string) => {
 
 function PromotionsPage() {
   const store = useStore();
+  const navigate = useNavigate();
   const [open, setOpen] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
   const vouchers = usePromos().filter(p => p.active);
@@ -33,6 +34,19 @@ function PromotionsPage() {
     setTimeout(() => {
       setCopied(prev => (prev === code ? null : prev));
     }, 2000);
+  };
+
+  const handleUseNow = (code: string) => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("pending_coupon", code);
+    }
+    if (store.cart.length > 0) {
+      store.notify(`Đã lưu mã ${code}. Đang chuyển đến giỏ hàng...`);
+      void navigate({ to: "/cart", search: { coupon: code } });
+    } else {
+      store.notify(`Đã chọn mã ${code}! Hãy chọn sản phẩm để thanh toán nhé.`);
+      void navigate({ to: "/", search: { category: "" } });
+    }
   };
 
   return (
@@ -169,11 +183,14 @@ function PromotionsPage() {
                       )}
                     </Button>
 
-                    <Link to="/" search={{ category: "" }}>
-                      <Button size="sm" variant="default" className="text-xs">
-                        Dùng ngay
-                      </Button>
-                    </Link>
+                    <Button
+                      size="sm"
+                      variant="default"
+                      className="text-xs"
+                      onClick={() => handleUseNow(v.code)}
+                    >
+                      Dùng ngay
+                    </Button>
                   </div>
                 </div>
 
