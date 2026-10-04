@@ -21,12 +21,13 @@ const register = async (req, res) => {
             return res.status(400).json({ error: 'Email, mật khẩu và họ tên là bắt buộc' });
         }
 
+        const normalizedEmail = String(email).trim().toLowerCase();
         const cleanPhone = phone ? String(phone).replace(/\s/g, '') : null;
         if (cleanPhone && !/^0\d{9}$/.test(cleanPhone)) {
             return res.status(400).json({ error: 'Số điện thoại không hợp lệ (cần 10 chữ số, bắt đầu bằng 0)' });
         }
 
-        const existing = await db.users.findUnique({ where: { email } });
+        const existing = await db.users.findUnique({ where: { email: normalizedEmail } });
         if (existing) {
             return res.status(409).json({ error: 'Email đã được sử dụng' });
         }
@@ -43,10 +44,10 @@ const register = async (req, res) => {
                 data: {
                     id: user_uuid,
                     token_user,
-                    email,
+                    email: normalizedEmail,
                     password: hashedPassword,
                     full_name,
-                    phone: phone || null,
+                    phone: cleanPhone,
                     role: role.id,
                 },
             });
@@ -71,8 +72,9 @@ const login = async (req, res) => {
             return res.status(400).json({ error: 'Email và mật khẩu là bắt buộc' });
         }
 
+        const normalizedEmail = String(email).trim().toLowerCase();
         const user = await db.users.findUnique({
-            where: { email },
+            where: { email: normalizedEmail },
             include: { roles: true },
         });
 
