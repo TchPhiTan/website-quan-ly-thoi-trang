@@ -12,6 +12,7 @@ import type { ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { StoreShell } from "@/components/store-shell";
+import { StoreProvider } from "@/lib/store";
 
 function NotFoundComponent() {
   return (
@@ -135,7 +136,9 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {isAdmin ? <Outlet /> : <StoreShell />}
+      <StoreProvider>
+        {isAdmin ? <Outlet /> : <StoreShell />}
+      </StoreProvider>
     </QueryClientProvider>
   );
 }

@@ -9,7 +9,7 @@ import { StoreProvider, useStore, money } from "@/lib/store";
 import { useProducts } from "@/services/hooks";
 import { authService } from "@/services";
 
-export function StoreShell() { return <StoreProvider><ShellContent /></StoreProvider>; }
+export function StoreShell() { return <ShellContent />; }
 function ShellContent() {
   const store = useStore(); const products = useProducts(); const [mobileMenu, setMobileMenu] = useState(false); const [showPassword, setShowPassword] = useState(false); const [error, setError] = useState(""); const [loading, setLoading] = useState(false);
   const count = store.cart.reduce((sum, item) => sum + item.quantity, 0);
