@@ -184,6 +184,22 @@ const applyCoupon = async (req, res) => {
             return res.status(400).json({ error: 'Mã giảm giá không hợp lệ hoặc đã hết hạn' });
         }
 
+        // Ràng buộc nghiệp vụ: Mỗi khách hàng chỉ được dùng mã ưu đãi 1 lần
+        const user = await db.users.findUnique({ where: { token_user: req.user.token_user } });
+        if (user) {
+            const usedBefore = await db.coupon_usages.findFirst({
+                where: {
+                    coupon_id: coupon.coupon_id,
+                    user_id: user.id,
+                },
+            });
+            if (usedBefore) {
+                return res.status(400).json({
+                    error: `Mã giảm giá ${coupon.code} chỉ được áp dụng 1 lần cho mỗi khách hàng.`,
+                });
+            }
+        }
+
         let cart = await db.cart.findUnique({
             where: { token_user: req.user.token_user },
             include: { cart_items: true },
@@ -305,6 +321,21 @@ const checkout = async (req, res) => {
                 ) {
                     throw new Error('Mã giảm giá không hợp lệ hoặc đã hết hạn');
                 }
+
+                // Ràng buộc nghiệp vụ: Mỗi khách hàng chỉ được dùng mã ưu đãi 1 lần
+                const user = await tx.users.findUnique({ where: { token_user } });
+                if (user) {
+                    const usedBefore = await tx.coupon_usages.findFirst({
+                        where: {
+                            coupon_id: appliedCoupon.coupon_id,
+                            user_id: user.id,
+                        },
+                    });
+                    if (usedBefore) {
+                        throw new Error(`Mã giảm giá ${appliedCoupon.code} chỉ được áp dụng 1 lần cho mỗi khách hàng.`);
+                    }
+                }
+
                 discount_total =
                     appliedCoupon.type === 'AMOUNT'
                         ? Number(appliedCoupon.discount_value)
@@ -326,7 +357,7 @@ const checkout = async (req, res) => {
                     coupon_id: appliedCoupon ? appliedCoupon.coupon_id : null,
                     subtotal,
                     discount_total,
-                    shipping_fee: Number(cart.shipping_fee) || 0,
+                    shipping_fee: 0,
                     shipping_full_name,
                     shipping_phone,
                     shipping_line1,
@@ -422,6 +453,7 @@ const getMyOrders = async (req, res) => {
                             products: { select: { title: true, slug: true, thumbnail: true } },
                         },
                     },
+                    coupons: { select: { code: true, title: true } },
                 },
             }),
             db.orders.count({ where }),

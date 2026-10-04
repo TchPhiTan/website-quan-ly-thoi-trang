@@ -109,10 +109,27 @@ function Orders() {
                     <img src={product.image} alt={product.name} className="w-20 h-25 object-cover" />
                   </Link>
                 )}
-                <div className="text-sm">
+                <div className="text-sm flex-1 min-w-0">
                   <p className="font-medium leading-6">{order.items}</p>
-                  <p className="text-muted-foreground mt-2">Giao tới: {order.address}</p>
-                  <p className="font-semibold mt-3">{money(order.total)}</p>
+                  <p className="text-muted-foreground mt-1 text-xs">Giao tới: {order.address}</p>
+                  <p className="text-muted-foreground text-xs mt-0.5">
+                    Phương thức: {order.paymentMethod === "BANKING" ? "Chuyển khoản ngân hàng" : "Thanh toán khi nhận hàng (COD)"}
+                  </p>
+                  <div className="mt-3 pt-3 border-t border-dashed flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div className="space-y-0.5 text-muted-foreground">
+                      <p>Tạm tính: <span>{money(order.subtotal || order.total)}</span></p>
+                      {Boolean(order.discountTotal && order.discountTotal > 0) && (
+                        <p className="text-accent font-medium">
+                          Giảm giá voucher {order.couponCode ? `(${order.couponCode})` : ""}: -{money(order.discountTotal || 0)}
+                        </p>
+                      )}
+                      <p className="text-emerald-600 font-medium">Vận chuyển: Miễn phí toàn quốc</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs text-muted-foreground block">Tổng thanh toán</span>
+                      <span className="text-base font-semibold text-foreground">{money(order.total)}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
               {!cancelled && (

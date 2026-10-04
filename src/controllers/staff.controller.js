@@ -40,6 +40,7 @@ const getOrders = async (req, res) => {
                 include: {
                     users: { select: { full_name: true, email: true, phone: true } },
                     order_items: { include: { products: { select: { title: true } } } },
+                    coupons: { select: { code: true, title: true } },
                 },
             }),
             db.orders.count({ where }),

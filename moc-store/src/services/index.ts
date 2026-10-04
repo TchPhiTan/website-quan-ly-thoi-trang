@@ -264,13 +264,16 @@ export const cartService = {
 };
 
 type ApiOrderItem = { product_id: string; quantity: number; price: number | string; size?: string | null; color?: string | null; products?: { title?: string | null; slug?: string | null; thumbnail?: string | null } | null };
-type ApiOrder = { id: string; created_at: string; status: string; subtotal: number | string; discount_total: number | string; shipping_fee: number | string; shipping_full_name: string; shipping_phone: string; shipping_city: string; shipping_line1: string; order_items?: ApiOrderItem[] };
+type ApiOrder = { id: string; created_at: string; status: string; subtotal: number | string; discount_total: number | string; shipping_fee: number | string; shipping_full_name: string; shipping_phone: string; shipping_city: string; shipping_line1: string; payment_method?: string; coupon_id?: string | null; coupons?: { code?: string; title?: string } | null; order_items?: ApiOrderItem[] };
 const orderStatusMap: Record<string, OrderStatus> = { pending: "Chờ duyệt", processing: "Đã duyệt", shipping: "Đang giao", completed: "Hoàn tất", cancelled: "Đã hủy", returned: "Đã trả hàng" };
 const orderStatus = (status: string): OrderStatus => orderStatusMap[status] || "Chờ duyệt";
 const apiOrderStatus: Record<OrderStatus, string> = { "Chờ duyệt": "pending", "Đã duyệt": "processing", "Đang giao": "shipping", "Hoàn tất": "completed", "Đã hủy": "cancelled", "Đã trả hàng": "returned" };
 const fromApiOrder = (raw: ApiOrder): Order => {
   const lines = raw.order_items || [];
   const address = [raw.shipping_line1, raw.shipping_city].filter(Boolean).join(", ");
+  const sub = Number(raw.subtotal || 0);
+  const disc = Number(raw.discount_total || 0);
+  const ship = Number(raw.shipping_fee || 0);
   return {
     id: raw.id,
     customer: raw.shipping_full_name,
@@ -279,7 +282,12 @@ const fromApiOrder = (raw: ApiOrder): Order => {
     date: raw.created_at.slice(0, 10),
     items: lines.map(item => `${item.products?.title || item.product_id} (${item.color || "Mặc định"}/${item.size || "Mặc định"}) x${item.quantity}`).join(", "),
     lines: lines.map(item => ({ productId: item.products?.slug || item.product_id, quantity: Number(item.quantity) })),
-    total: Number(raw.subtotal) - Number(raw.discount_total) + Number(raw.shipping_fee),
+    subtotal: sub,
+    discountTotal: disc,
+    shippingFee: ship,
+    couponCode: raw.coupons?.code || null,
+    paymentMethod: raw.payment_method || "COD",
+    total: sub - disc + ship,
     status: orderStatus(raw.status),
   };
 };

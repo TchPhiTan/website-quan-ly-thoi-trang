@@ -81,8 +81,8 @@ function PromotionsPage() {
             01
           </div>
           <div>
-            <h2 className="font-semibold text-sm mb-1">Freeship đơn từ 799k</h2>
-            <p className="text-xs text-muted-foreground leading-5">Miễn phí giao hàng tiêu chuẩn toàn quốc cho đơn hàng đạt giá trị tối thiểu.</p>
+            <h2 className="font-semibold text-sm mb-1">Freeship mọi đơn hàng</h2>
+            <p className="text-xs text-muted-foreground leading-5">Miễn phí giao hàng tiêu chuẩn 100% cho mọi đơn hàng trên toàn quốc, không giới hạn giá trị.</p>
           </div>
         </div>
 

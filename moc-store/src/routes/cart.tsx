@@ -38,6 +38,7 @@ function CartPage() {
   const [code, setCode] = useState("");
   const [selectedPromo, setSelectedPromo] = useState<Promo | null>(null);
   const [voucherModalOpen, setVoucherModalOpen] = useState(false);
+  const [bankingOrder, setBankingOrder] = useState<{ id: string; amount: number } | null>(null);
   const products = useProducts();
   const promos = usePromos();
   const { addresses } = useAddresses();
@@ -210,11 +211,22 @@ function CartPage() {
         coupon_id: selectedPromo?.id || null,
       });
 
+      const createdOrderId = order.id;
+      const finalAmount = Math.max(0, subtotal - discount);
       store.removeSelected();
       setSelectedPromo(null);
       setCode("");
-      store.notify(`Đặt hàng thành công! Mã đơn: #${order.id}`);
-      void navigate({ to: "/account/orders" });
+
+      if (paymentMethod === "BANKING") {
+        setBankingOrder({
+          id: createdOrderId,
+          amount: finalAmount,
+        });
+        store.notify(`Đã tạo đơn #${createdOrderId.slice(0, 8)}! Vui lòng quét mã QR thanh toán.`);
+      } else {
+        store.notify(`Đặt hàng thành công! Mã đơn: #${createdOrderId}`);
+        void navigate({ to: "/account/orders" });
+      }
     } catch (reason) {
       setError((reason as Error).message || "Có lỗi xảy ra khi tạo đơn hàng.");
     } finally {
@@ -570,7 +582,7 @@ function CartPage() {
               )}
               <div className="flex justify-between text-muted-foreground text-xs">
                 <span>Phí vận chuyển</span>
-                <span>{promo?.kind === "Miễn phí vận chuyển" ? "Miễn phí" : "Tính khi giao"}</span>
+                <span className="text-emerald-600 font-medium">Miễn phí toàn quốc</span>
               </div>
               <div className="flex justify-between border-t pt-3 font-semibold text-lg">
                 <span>Tổng thanh toán</span>
@@ -681,6 +693,80 @@ function CartPage() {
               })
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+      {/* Modal Thanh toán VietQR (Hỗ trợ Test / Sandbox) */}
+      <Dialog open={!!bankingOrder} onOpenChange={open => !open && setBankingOrder(null)}>
+        <DialogContent className="max-w-md p-6 flex flex-col items-center text-center">
+          <div className="size-12 rounded-full bg-accent/10 flex items-center justify-center text-accent mb-1">
+            <CreditCard className="size-6" />
+          </div>
+          <DialogTitle className="text-xl font-medium">Thanh toán Chuyển khoản (VietQR)</DialogTitle>
+          <DialogDescription className="text-xs">
+            Đơn hàng #{bankingOrder?.id} đã được tạo thành công. Quét mã QR dưới đây để thanh toán.
+          </DialogDescription>
+
+          {bankingOrder && (
+            <div className="w-full my-3 space-y-3">
+              <div className="bg-white p-3 rounded-lg border border-border shadow-xs inline-block mx-auto">
+                <img
+                  src={`https://img.vietqr.io/image/MB-0901234567-compact2.png?amount=${bankingOrder.amount}&addInfo=MOC%20${bankingOrder.id.slice(0, 8)}&accountName=MOC%20FASHION`}
+                  alt="Mã VietQR Chuyển khoản"
+                  className="w-56 h-auto mx-auto object-contain"
+                />
+              </div>
+
+              <div className="p-3 bg-secondary/60 rounded-sm text-left text-xs space-y-1.5 border border-border">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Ngân hàng:</span>
+                  <span className="font-semibold">MB Bank (Quân Đội)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Số tài khoản:</span>
+                  <span className="font-mono font-bold">0901234567</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Chủ tài khoản:</span>
+                  <span className="font-semibold uppercase">MOC FASHION</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Số tiền:</span>
+                  <span className="font-bold text-accent text-sm">{money(bankingOrder.amount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Nội dung:</span>
+                  <span className="font-mono font-bold text-foreground">MOC {bankingOrder.id.slice(0, 8)}</span>
+                </div>
+              </div>
+
+              <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 rounded-sm text-[11px] text-left">
+                💡 <strong>Chế độ Kiểm thử / Demo:</strong> Bạn có thể dùng app ngân hàng quét thử để kiểm tra thông tin số tiền & nội dung, hoặc bấm nút xác nhận bên dưới để mô phỏng hoàn tất mà không cần chuyển tiền thật.
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <Button
+                  className="w-full h-11 text-xs font-medium"
+                  onClick={() => {
+                    store.notify("Xác nhận thanh toán chuyển khoản thành công!");
+                    setBankingOrder(null);
+                    void navigate({ to: "/account/orders" });
+                  }}
+                >
+                  Xác nhận đã chuyển khoản (Mô phỏng Test)
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full h-9 text-xs"
+                  onClick={() => {
+                    setBankingOrder(null);
+                    void navigate({ to: "/account/orders" });
+                  }}
+                >
+                  Để sau / Xem đơn hàng của tôi
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

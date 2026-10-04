@@ -105,6 +105,9 @@ function Orders() {
               <td className={td}>{o.date.split("-").reverse().join("/")}</td>
               <td className={td}>
                 <span className="font-semibold">{money(o.total)}</span>
+                {Boolean(o.discountTotal && o.discountTotal > 0) && (
+                  <p className="text-[11px] text-accent">Voucher: -{money(o.discountTotal || 0)}</p>
+                )}
               </td>
               <td className={td}>
                 <Badge tone={tone(o.status)}>{o.status}</Badge>
@@ -220,6 +223,27 @@ function Orders() {
             <div className="flex justify-between items-center pt-2">
               <span className="text-xs text-muted-foreground">Trạng thái hiện tại:</span>
               <Badge tone={tone(view.status)}>{view.status}</Badge>
+            </div>
+
+            <div className="p-3 bg-background border border-border text-xs space-y-1.5">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Tạm tính:</span>
+                <span>{money(view.subtotal || view.total)}</span>
+              </div>
+              {Boolean(view.discountTotal && view.discountTotal > 0) && (
+                <div className="flex justify-between text-accent font-medium">
+                  <span>Giảm giá voucher ({view.couponCode || "VOUCHER"}):</span>
+                  <span>-{money(view.discountTotal || 0)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-muted-foreground">
+                <span>Phí vận chuyển:</span>
+                <span className="text-emerald-600 font-medium">Miễn phí toàn quốc</span>
+              </div>
+              <div className="flex justify-between text-muted-foreground">
+                <span>Phương thức:</span>
+                <span>{view.paymentMethod === "BANKING" ? "Chuyển khoản ngân hàng" : "Thanh toán khi nhận hàng (COD)"}</span>
+              </div>
             </div>
 
             <div className="flex justify-between items-center text-base font-semibold pt-1 border-t">
