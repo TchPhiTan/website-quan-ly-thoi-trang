@@ -25,7 +25,7 @@ function optimizeImage(file: File): Promise<string> {
       const img = new Image();
       img.onerror = reject;
       img.onload = () => {
-        const maxDim = 1200;
+        const maxDim = 720;
         let { width, height } = img;
         if (width > maxDim || height > maxDim) {
           if (width > height) {
@@ -42,7 +42,7 @@ function optimizeImage(file: File): Promise<string> {
         const ctx = canvas.getContext("2d");
         if (!ctx) { resolve(String(reader.result)); return; }
         ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL("image/jpeg", 0.85));
+        resolve(canvas.toDataURL("image/jpeg", 0.70));
       };
       img.src = String(reader.result);
     };
@@ -63,7 +63,10 @@ function ProductForm() {
     if (!colors.length || !sizes.length) { setErr("Vui lòng nhập ít nhất một màu và một kích cỡ."); return; }
     const slug = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "sp";
     const newId = products.some(p => p.id === slug) ? `${slug}-${Date.now()}` : slug;
-    const selectedCategory = categories.find(item => item.id === category); const next: AProduct = { id: cur?.id ?? newId, ...(cur?.apiId ? { apiId: cur.apiId } : {}), ...(selectedCategory ? { categoryId: selectedCategory.id } : cur?.categoryId ? { categoryId: cur.categoryId } : {}), name, category: selectedCategory?.title ?? (cur?.category === category ? cur.category : category), price, stock, colors, sizes, description: String(d.get("description") || ""), image: preview, status: cur?.status ?? "Đang bán", createdAt: cur?.createdAt ?? new Date().toISOString().slice(0, 10), ...(cur?.label ? { label: cur.label } : {}) };
+    const matchedCategory = categories.find(item => item.id === category || item.title.trim().toLowerCase() === String(category).trim().toLowerCase()) || categories[0];
+    const catId = matchedCategory?.id || cur?.categoryId;
+    const catTitle = matchedCategory?.title ?? (cur?.category === category ? cur.category : category);
+    const next: AProduct = { id: cur?.id ?? newId, ...(cur?.apiId ? { apiId: cur.apiId } : {}), ...(catId ? { categoryId: catId } : {}), name, category: catTitle, price, stock, colors, sizes, description: String(d.get("description") || ""), image: preview, status: cur?.status ?? "Đang bán", createdAt: cur?.createdAt ?? new Date().toISOString().slice(0, 10), ...(cur?.label ? { label: cur.label } : {}) };
     void a.run(productService.save(next, a.signedIn), cur ? "Đã cập nhật sản phẩm" : "Đã thêm sản phẩm mới").then(ok => { if (ok) void nav({ to: "/admin/products" }); });
   };
 

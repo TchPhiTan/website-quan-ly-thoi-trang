@@ -24,8 +24,16 @@ app.set('trust proxy', 1);
 // ==========================================
 // MIDDLEWARE CORE
 // ==========================================
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Hỗ trợ Chrome Private Network Access (PNA khi gọi localhost từ web HTTPS như Vercel)
+app.use((req, res, next) => {
+    if (req.headers['access-control-request-private-network']) {
+        res.setHeader('Access-Control-Allow-Private-Network', 'true');
+    }
+    next();
+});
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/assets', express.static(path.join(__dirname, '../moc-store/src/assets')));
 
 // Chuẩn hóa danh sách origin cho phép từ FRONTEND_URL (hỗ trợ phân tách bằng dấu phẩy)
