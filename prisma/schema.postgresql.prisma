@@ -128,6 +128,7 @@ model products {
   thumbnail    String?
   status       String    @default("active") @db.VarChar(20)
   deleted      Boolean   @default(false)
+  deleted_at   DateTime?
   created_at   DateTime  @default(now())
   updated_at   DateTime  @updatedAt
   slug         String    @unique @db.VarChar(200)

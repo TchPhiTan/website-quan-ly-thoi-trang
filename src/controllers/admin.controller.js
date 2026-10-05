@@ -180,6 +180,7 @@ const deleteProduct = async (req, res) => {
                 where: { id: product.id },
                 data: {
                     deleted: true,
+                    deleted_at: new Date(),
                     status: 'inactive',
                     slug: newSlug,
                 },
