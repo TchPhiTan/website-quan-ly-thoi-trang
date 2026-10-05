@@ -169,18 +169,29 @@ const deleteProduct = async (req, res) => {
                 return { status: 404, body: { error: 'Không tìm thấy sản phẩm' } };
             }
 
+            if (product.deleted) {
+                return { status: 200, body: { message: 'Sản phẩm đã được xóa trước đó' } };
+            }
+
+            const baseSlug = product.slug.replace(/-deleted-\d+$/, '').slice(0, 150);
+            const newSlug = `${baseSlug}-deleted-${Date.now()}`;
+
             await db.products.update({
                 where: { id: product.id },
                 data: {
                     deleted: true,
                     status: 'inactive',
-                    slug: `${product.slug.slice(0, 160)}-deleted-${Date.now()}`,
+                    slug: newSlug,
                 },
             });
 
             await db.product_variants.updateMany({
                 where: { product_id: product.id },
                 data: { stock: 0 },
+            });
+
+            await db.cart_items.deleteMany({
+                where: { product_id: product.id },
             });
 
             return { status: 200, body: { message: 'Đã xóa sản phẩm' } };

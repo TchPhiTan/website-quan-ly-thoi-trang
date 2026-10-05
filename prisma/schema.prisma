@@ -1,6 +1,6 @@
 // ================================================
-// PRISMA SCHEMA - ShopDB (SQL Server / Azure SQL)
-// Dành cho SQL Server 2016+ / SSMS
+// PRISMA SCHEMA - ShopDB (PostgreSQL)
+// Chuyển từ SQL Server → PostgreSQL
 // Fix: onDelete/onUpdate NoAction để tránh cyclic cascade
 // ================================================
 
@@ -9,7 +9,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlserver"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -17,7 +17,7 @@ datasource db {
 // 1. ROLES - Phân quyền hệ thống
 // ================================================
 model roles {
-  id          String   @id @default(uuid()) @db.UniqueIdentifier
+  id          String   @id @default(uuid()) @db.Uuid
   name        String   @unique @db.VarChar(50)
   description String?
   created_at  DateTime @default(now())
@@ -29,11 +29,11 @@ model roles {
 // 2. USERS - Tài khoản người dùng
 // ================================================
 model users {
-  id         String    @id @default(uuid()) @db.UniqueIdentifier
+  id         String    @id @default(uuid()) @db.Uuid
   full_name  String    @db.VarChar(200)
   email      String    @unique @db.VarChar(254)
   password   String    @db.VarChar(255)
-  token_user String    @unique @default(uuid()) @db.UniqueIdentifier
+  token_user String    @unique @default(uuid()) @db.Uuid
   phone      String?   @db.VarChar(20)
   avatar     String?
   status     String    @default("active") @db.VarChar(20)
@@ -46,7 +46,7 @@ model users {
   address    String?   @db.VarChar(500)
   height_cm  Int?
   weight_kg  Decimal?  @db.Decimal(5, 1)
-  role       String    @db.UniqueIdentifier
+  role       String    @db.Uuid
 
   roles           roles             @relation(fields: [role], references: [id], onDelete: NoAction, onUpdate: NoAction)
   addresses       addresses[]
@@ -60,8 +60,8 @@ model users {
 // 3. ADDRESSES - Sổ địa chỉ giao hàng
 // ================================================
 model addresses {
-  id         String   @id @default(uuid()) @db.UniqueIdentifier
-  token_user String   @db.UniqueIdentifier
+  id         String   @id @default(uuid()) @db.Uuid
+  token_user String   @db.Uuid
   full_name  String   @db.VarChar(200)
   phone      String   @db.VarChar(20)
   city       String   @db.VarChar(100)
@@ -79,9 +79,9 @@ model addresses {
 // 4. CATEGORIES - Danh mục sản phẩm (cây thư mục)
 // ================================================
 model categories {
-  id          String    @id @default(uuid()) @db.UniqueIdentifier
+  id          String    @id @default(uuid()) @db.Uuid
   title       String    @db.VarChar(200)
-  parent_id   String?   @db.UniqueIdentifier
+  parent_id   String?   @db.Uuid
   description String?
   thumbnail   String?
   status      String    @default("active") @db.VarChar(20)
@@ -102,7 +102,7 @@ model categories {
 // 5. COLORS - Màu sắc sản phẩm
 // ================================================
 model colors {
-  id         String   @id @default(uuid()) @db.UniqueIdentifier
+  id         String   @id @default(uuid()) @db.Uuid
   name       String   @db.VarChar(100)
   slug       String   @unique @db.VarChar(100)
   hex        String?  @db.VarChar(7)
@@ -118,12 +118,12 @@ model colors {
 // 6. PRODUCTS - Sản phẩm
 // ================================================
 model products {
-  id           String    @id @default(uuid()) @db.UniqueIdentifier
+  id           String    @id @default(uuid()) @db.Uuid
   title        String    @db.VarChar(200)
   description  String?
   price        Decimal   @db.Decimal(12, 0)
   discount     Int       @default(0)
-  category_id  String    @db.UniqueIdentifier
+  category_id  String    @db.Uuid
   size         String    @default("[]") // JSON array dạng text
   thumbnail    String?
   status       String    @default("active") @db.VarChar(20)
@@ -147,13 +147,13 @@ model products {
 // 7. PRODUCT_VARIANTS - Biến thể sản phẩm
 // ================================================
 model product_variants {
-  id                String  @id @default(uuid()) @db.UniqueIdentifier
-  product_id        String  @db.UniqueIdentifier
+  id                String  @id @default(uuid()) @db.Uuid
+  product_id        String  @db.Uuid
   color             String? @db.VarChar(100)
   size              String  @db.VarChar(50)
   images            String  @default("[]") // JSON array
   stock             Int     @default(0)
-  color_id          String  @db.UniqueIdentifier
+  color_id          String  @db.Uuid
   color_hex_legacy  String? @db.VarChar(7)
   swatch_url_legacy String?
 
@@ -170,7 +170,7 @@ model product_variants {
 // 8. COUPONS - Mã giảm giá
 // ================================================
 model coupons {
-  coupon_id       String    @id @default(uuid()) @db.UniqueIdentifier
+  coupon_id       String    @id @default(uuid()) @db.Uuid
   code            String    @unique @db.VarChar(50)
   title           String    @db.VarChar(200)
   type            String    @db.VarChar(20) // PERCENT | AMOUNT | FREESHIP
@@ -195,8 +195,8 @@ model coupons {
 // 9. COUPON_PRODUCTS
 // ================================================
 model coupon_products {
-  coupon_id  String @db.UniqueIdentifier
-  product_id String @db.UniqueIdentifier
+  coupon_id  String @db.Uuid
+  product_id String @db.Uuid
 
   @@id([coupon_id, product_id])
 
@@ -208,13 +208,13 @@ model coupon_products {
 // 10. CART - Giỏ hàng
 // ================================================
 model cart {
-  id           String   @id @default(uuid()) @db.UniqueIdentifier
-  token_user   String   @unique @db.UniqueIdentifier
+  id           String   @id @default(uuid()) @db.Uuid
+  token_user   String   @unique @db.Uuid
   grand_total  Decimal  @default(0) @db.Decimal(12, 0)
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
   shipping_fee Decimal  @default(0) @db.Decimal(12, 0)
-  coupon_id    String?  @db.UniqueIdentifier
+  coupon_id    String?  @db.Uuid
 
   users      users        @relation(fields: [token_user], references: [token_user], onDelete: NoAction, onUpdate: NoAction)
   coupons    coupons?     @relation(fields: [coupon_id], references: [coupon_id], onDelete: NoAction, onUpdate: NoAction)
@@ -225,10 +225,10 @@ model cart {
 // 11. CART_ITEMS - Chi tiết giỏ hàng
 // ================================================
 model cart_items {
-  id            String  @id @default(uuid()) @db.UniqueIdentifier
-  cart_id       String  @db.UniqueIdentifier
-  product_id    String  @db.UniqueIdentifier
-  variant_id    String  @db.UniqueIdentifier
+  id            String  @id @default(uuid()) @db.Uuid
+  cart_id       String  @db.Uuid
+  product_id    String  @db.Uuid
+  variant_id    String  @db.Uuid
   image_url     String?
   size          String? @db.VarChar(50)
   color         String? @db.VarChar(100)
@@ -247,11 +247,11 @@ model cart_items {
 // 12. ORDERS - Đơn hàng
 // ================================================
 model orders {
-  id                 String   @id @default(uuid()) @db.UniqueIdentifier
-  token_user         String   @db.UniqueIdentifier
+  id                 String   @id @default(uuid()) @db.Uuid
+  token_user         String   @db.Uuid
   status             String   @default("pending") @db.VarChar(20)
   payment_method     String   @db.VarChar(30)
-  coupon_id          String?  @db.UniqueIdentifier
+  coupon_id          String?  @db.Uuid
   subtotal           Decimal  @default(0) @db.Decimal(18, 0)
   discount_total     Decimal  @default(0) @db.Decimal(18, 0)
   shipping_fee       Decimal  @default(0) @db.Decimal(18, 0)
@@ -277,10 +277,10 @@ model orders {
 // 13. ORDER_ITEMS - Chi tiết đơn hàng
 // ================================================
 model order_items {
-  id                 String   @id @default(uuid()) @db.UniqueIdentifier
-  order_id           String   @db.UniqueIdentifier
-  product_id         String   @db.UniqueIdentifier
-  variant_id         String   @db.UniqueIdentifier
+  id                 String   @id @default(uuid()) @db.Uuid
+  order_id           String   @db.Uuid
+  product_id         String   @db.Uuid
+  variant_id         String   @db.Uuid
   product_slug       String?  @db.VarChar(200)
   thumbnail_snapshot String?
   price              Decimal  @db.Decimal(12, 0)
@@ -300,10 +300,10 @@ model order_items {
 // 14. COUPON_USAGES - Lịch sử dùng mã giảm giá
 // ================================================
 model coupon_usages {
-  usage_id  String   @id @default(uuid()) @db.UniqueIdentifier
-  coupon_id String   @db.UniqueIdentifier
-  order_id  String   @unique @db.UniqueIdentifier
-  user_id   String   @db.UniqueIdentifier
+  usage_id  String   @id @default(uuid()) @db.Uuid
+  coupon_id String   @db.Uuid
+  order_id  String   @unique @db.Uuid
+  user_id   String   @db.Uuid
   used_at   DateTime @default(now())
 
   coupons coupons @relation(fields: [coupon_id], references: [coupon_id], onDelete: NoAction, onUpdate: NoAction)
@@ -315,13 +315,13 @@ model coupon_usages {
 // 15. INVENTORY_MOVEMENTS - Nhật ký tồn kho
 // ================================================
 model inventory_movements {
-  id            String   @id @default(uuid()) @db.UniqueIdentifier
-  product_id    String   @db.UniqueIdentifier
-  variant_id    String   @db.UniqueIdentifier
-  order_item_id String?  @db.UniqueIdentifier
+  id            String   @id @default(uuid()) @db.Uuid
+  product_id    String   @db.Uuid
+  variant_id    String   @db.Uuid
+  order_item_id String?  @db.Uuid
   delta         Int
   reason        String   @db.VarChar(30) // sales | returns | restock | adjustment
-  ref_order_id  String?  @db.UniqueIdentifier
+  ref_order_id  String?  @db.Uuid
   note          String?
   created_at    DateTime @default(now())
 
@@ -335,9 +335,9 @@ model inventory_movements {
 // 16. PRODUCT_REVIEWS - Đánh giá sản phẩm
 // ================================================
 model product_reviews {
-  id            String   @id @default(uuid()) @db.UniqueIdentifier
-  order_item_id String   @unique @db.UniqueIdentifier
-  token_user    String   @db.UniqueIdentifier
+  id            String   @id @default(uuid()) @db.Uuid
+  order_item_id String   @unique @db.Uuid
+  token_user    String   @db.Uuid
   rating        Int
   content       String?
   created_at    DateTime @default(now())
@@ -352,8 +352,8 @@ model product_reviews {
 // 17. REVIEW_REPLIES - Phản hồi đánh giá
 // ================================================
 model review_replies {
-  id         String   @id @default(uuid()) @db.UniqueIdentifier
-  review_id  String   @db.UniqueIdentifier
+  id         String   @id @default(uuid()) @db.Uuid
+  review_id  String   @db.Uuid
   author     String   @default("admin") @db.VarChar(100)
   content    String
   created_at DateTime @default(now())

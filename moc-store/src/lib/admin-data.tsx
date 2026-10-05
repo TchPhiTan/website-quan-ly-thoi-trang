@@ -19,7 +19,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     }).catch(() => {}).finally(() => setInitializing(false));
   }, []);
   const notify = (m: string) => { setToast(m); setTimeout(() => setToast(""), 3500); };
-  const run = async (p: Promise<unknown>, okMessage: string) => { try { await p; notify(okMessage); return true; } catch (e) { console.error(e); notify("Có lỗi xảy ra, vui lòng thử lại"); return false; } };
+  const run = async (p: Promise<unknown>, okMessage: string) => { try { await p; notify(okMessage); return true; } catch (e) { console.error(e); notify((e as Error)?.message || "Có lỗi xảy ra, vui lòng thử lại"); return false; } };
   const signIn = (currentUser: AuthUser) => { setUser(currentUser); setSignedIn(currentUser.role === "admin" || currentUser.role === "staff"); notify("Đăng nhập quản trị thành công"); };
   const signOut = async () => { try { await authService.logout(); } finally { setUser(null); setSignedIn(false); } };
   return <Ctx.Provider value={{ signedIn, initializing, user, signIn, signOut, toast, notify, run }}>{children}</Ctx.Provider>;
